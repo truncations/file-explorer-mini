@@ -1,8 +1,8 @@
-import keys_vars as keys_vars
-from os import path, listdir
+import src.vars_util as vars_util
 
-# RELIES ON keys_vars.current_directory
-def get_files_in_directory():
-    cur_dir = keys_vars.current_directory
-    if path.exists(cur_dir):
-        
+# RETURNS LIST OF vars_util.Directory_Point objects.
+def get_files_in_cur_directory() -> list:
+    cur_dir = vars_util.Directory_Manager.current_directory
+    list_of_files = vars_util.Directory_Manager.get_list_of_files(cur_dir)
+    return list_of_files
+    

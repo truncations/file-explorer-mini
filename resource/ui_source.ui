@@ -568,6 +568,9 @@ QPushButton:pressed {
              <height>16777215</height>
             </size>
            </property>
+           <property name="focusPolicy">
+            <enum>Qt::FocusPolicy::StrongFocus</enum>
+           </property>
            <property name="text">
             <string/>
            </property>
@@ -707,7 +710,7 @@ QPushButton:pressed {
             </font>
            </property>
            <property name="placeholderText">
-            <string>Search in Directory</string>
+            <string>Search Directory...</string>
            </property>
           </widget>
          </item>
@@ -813,7 +816,7 @@ QPushButton:pressed {
           <string notr="true"/>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>1</number>
          </property>
          <widget class="QWidget" name="explorer_page">
           <property name="styleSheet">
@@ -840,7 +843,7 @@ QPushButton:pressed {
              <property name="font">
               <font>
                <family>Microsoft YaHei UI</family>
-               <fontweight>Light</fontweight>
+               <fontweight>Thin</fontweight>
               </font>
              </property>
              <property name="focusPolicy">
@@ -874,13 +877,14 @@ QHeaderView::section {
 }
 
 QScrollBar:horizontal {
-    background: #1F5600;
+    background: #215400;
     height: 15px;
     margin: 0px 20px;
 	color: #F2F0EA;
 }
+
 QScrollBar::handle:horizontal {
-    background: #1F5600;
+    background: #256600;
     min-width: 10px;
 }
 
@@ -899,11 +903,45 @@ QScrollBar::sub-line:horizontal {
 }
 
 QScrollBar::up-arrow:horizontal, QScrollBar::down-arrow:horizontal {
-	background: #1D5100;
+	background: #215400;
 }
 
 QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
-	background: #1D5100;
+	background: #215400;
+}
+
+QScrollBar:vertical {
+    background: #215400;
+    width: 15px;
+    margin: 20px 0px;
+	color: #F2F0EA;
+}
+
+QScrollBar::handle:vertical {
+    background: #256600;
+    min-height: 10px;
+}
+
+QScrollBar::add-line:vertical {
+	background-color: #1C4C00;
+    height: 20px;
+    subcontrol-position: bottom;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::sub-line:vertical {
+	background-color: #1C4C00;
+    height: 20px;
+    subcontrol-position: top;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+	background: none;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+	background: none;
 }</string>
              </property>
              <property name="editTriggers">
@@ -922,7 +960,7 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
               <number>0</number>
              </property>
              <property name="columnCount">
-              <number>5</number>
+              <number>4</number>
              </property>
              <attribute name="horizontalHeaderVisible">
               <bool>true</bool>
@@ -936,11 +974,6 @@ QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
              <attribute name="verticalHeaderHighlightSections">
               <bool>false</bool>
              </attribute>
-             <column>
-              <property name="text">
-               <string>Icon</string>
-              </property>
-             </column>
              <column>
               <property name="text">
                <string>Name</string>
@@ -1361,6 +1394,7 @@ QLabel {
              <property name="styleSheet">
               <string notr="true">QScrollArea {
 	border: none;
+	border-left: 2px solid #1F5600;
 	border-bottom: 2px solid #1F5600;
 }</string>
              </property>
@@ -1375,8 +1409,8 @@ QLabel {
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>671</width>
-                <height>498</height>
+                <width>243</width>
+                <height>225</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -1443,6 +1477,9 @@ QLabel {
                     <property name="text">
                      <string>Program Logs (Developer Tools)</string>
                     </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignCenter</set>
+                    </property>
                    </widget>
                   </item>
                   <item>
@@ -1457,12 +1494,17 @@ QLabel {
                     <property name="text">
                      <string>Used for debugging purposes.</string>
                     </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignCenter</set>
+                    </property>
                    </widget>
                   </item>
                   <item>
                    <widget class="QScrollArea" name="list_of_logs">
                     <property name="styleSheet">
-                     <string notr="true"/>
+                     <string notr="true">QScrollArea {
+	border: none;
+}</string>
                     </property>
                     <property name="widgetResizable">
                      <bool>true</bool>
@@ -1472,8 +1514,8 @@ QLabel {
                       <rect>
                        <x>0</x>
                        <y>0</y>
-                       <width>667</width>
-                       <height>179</height>
+                       <width>100</width>
+                       <height>30</height>
                       </rect>
                      </property>
                      <property name="styleSheet">
@@ -1627,8 +1669,6 @@ QLabel {
    <zorder>verticalSpacer_2</zorder>
   </widget>
  </widget>
- <resources>
-  <include location="image_ui_resources.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>

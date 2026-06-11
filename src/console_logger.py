@@ -1,5 +1,5 @@
 import datetime
-import src.keys_vars as keys_vars
+import vars_util as vars_util
 
 class Message_Keys():
     status_code = 0
@@ -16,25 +16,30 @@ class Logger():
         2: "ERROR",
     }
 
+    @staticmethod
     def send_message(msg="", code=0):
-        if Logger.get_log_count()+1 > keys_vars.max_log_count:
+        if Logger.get_log_count()+1 > vars_util.max_log_count:
             Logger.get_logs().pop()
         time_sent_msg = datetime.datetime.now()
         msg = (Logger.status_codes[code], msg, time_sent_msg.strftime("%H:%M:%S.%f-%Y:%m:%d"))
         Logger._logs.append(msg)
 
+    @staticmethod
     def get_logs():
         return Logger._logs
 
+    @staticmethod
     def print_logs():
         strformat = "===== LOGS =====\n\n"
         for log in Logger.get_logs():
             strformat += f"{log[Message_Keys.time_sent]} > {log[Message_Keys.status_code]} | {log[Message_Keys.msg]}\n"
         print(strformat)
 
+    @staticmethod
     def get_log_count():
         return len(Logger.get_logs())
 
+    @staticmethod
     def tick_function(function, alias, *args, **kwargs):
         start_tick = datetime.datetime.now()
         Logger.send_message(f"Ticking Function: {alias}", 0)
