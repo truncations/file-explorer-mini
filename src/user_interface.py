@@ -13,9 +13,13 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QPoint
 from PyQt6.QtGui import QIcon, QPixmap
 import sys
-import src.vars_util as vars_util
+import src.configuration as configuration
+import src.file_explorer_manager as file_explorer_manager
 import src.backend as backend
 from subprocess import run as subprocess_run
+from win32api import GetMonitorInfo, MonitorFromPoint
+
+_ui_src_file_name = "ui_source.ui"
 
 class Special_Bounds_Keys:
     TOP_OF_SCREEN = 1
@@ -27,6 +31,15 @@ class File_Explorer_Keys:
     DATE_MODIFIED = 1
     TYPE = 2
     SIZE = 3
+
+def get_taskbar_height():
+    _height_screen_key = 3
+
+    primary_monitor = MonitorFromPoint((0,0))
+    monitor_info = GetMonitorInfo(primary_monitor)
+    actual_screen_area = monitor_info.get("Monitor")
+    available_screen_area = monitor_info.get("Work")
+    return actual_screen_area[_height_screen_key]-available_screen_area[_height_screen_key]
 
 class Main_Application(QMainWindow):
     app_ref = None
@@ -57,13 +70,13 @@ class Main_Application(QMainWindow):
         # proper setup here
         self.file_explorer.horizontalHeader().setFont(self.file_explorer.font())
 
-        self.file_explorer.setColumnWidth(File_Explorer_Keys.NAME, vars_util.File_Explorer_Config.NAME_COL_WIDTH)
-        self.file_explorer.setColumnWidth(File_Explorer_Keys.DATE_MODIFIED, vars_util.File_Explorer_Config.DATE_MODIFIED_COL_WIDTH)
-        self.file_explorer.setColumnWidth(File_Explorer_Keys.TYPE, vars_util.File_Explorer_Config.TYPE_COL_WIDTH)
-        self.file_explorer.setColumnWidth(File_Explorer_Keys.SIZE, vars_util.File_Explorer_Config.SIZE_COL_WIDTH)
+        self.file_explorer.setColumnWidth(File_Explorer_Keys.NAME, configuration.File_Explorer_Table_Config.NAME_COL_WIDTH)
+        self.file_explorer.setColumnWidth(File_Explorer_Keys.DATE_MODIFIED, configuration.File_Explorer_Table_Config.DATE_MODIFIED_COL_WIDTH)
+        self.file_explorer.setColumnWidth(File_Explorer_Keys.TYPE, configuration.File_Explorer_Table_Config.TYPE_COL_WIDTH)
+        self.file_explorer.setColumnWidth(File_Explorer_Keys.SIZE, configuration.File_Explorer_Table_Config.SIZE_COL_WIDTH)
 
     def load_ui(self):
-        uic.load_ui.loadUi(vars_util.Directory_Manager.get_dir_ui_file(vars_util.ui_src_file_name), self)
+        uic.load_ui.loadUi(file_explorer_manager.Directory_Manager.get_dir_ui_file(_ui_src_file_name), self)
 
     def connect_events(self):
         self.button_close_window.clicked.connect(self.close_window)
@@ -92,7 +105,7 @@ class Main_Application(QMainWindow):
     def show_media_page(self):
         self.main_content.setCurrentIndex(1)
         self.input_status_bar.setReadOnly(True)
-        self.input_status_bar.setText(vars_util.Directory_Manager.current_directory)
+        self.input_status_bar.setText(file_explorer_manager.Directory_Manager.current_directory)
 
     def show_settings_page(self):
         self.main_content.setCurrentIndex(2)
@@ -103,7 +116,7 @@ class Main_Application(QMainWindow):
         self.file_explorer.clearContents()
         self.file_explorer.setRowCount(0)
 
-        files = backend.file_explorer_management.get_files_in_cur_directory()
+        files = file_explorer_manager.get_files_in_cur_directory()
         row_count = 0
         for file in files:
             self.file_explorer.insertRow(row_count)
@@ -116,7 +129,7 @@ class Main_Application(QMainWindow):
             
             row_count += 1
 
-        self.input_status_bar.setText(vars_util.Directory_Manager.current_directory)
+        self.input_status_bar.setText(file_explorer_manager.Directory_Manager.current_directory)
         self.label_extra_information.setText(f"{len(files)} items in directory")
 
     def get_name_and_icon_for_table(self, name):
@@ -126,7 +139,7 @@ class Main_Application(QMainWindow):
         base_widget.setStyleSheet("QWidget { background: transparent; }")
 
         file_icon_widget = QLabel("ENOUGH")
-        file_icon_widget.setPixmap(QPixmap(vars_util.Directory_Manager.get_dir_image_from_icons("default_no_file_icon.png")))
+        file_icon_widget.setPixmap(QPixmap(file_explorer_manager.Directory_Manager.get_dir_image_from_icons("default_no_file_icon.png")))
         file_icon_widget.setScaledContents(True)
         file_icon_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Ignored)
         file_icon_widget.setFixedSize(20,20)
@@ -146,18 +159,18 @@ class Main_Application(QMainWindow):
     # helpers for fullscreening
     def display_fullscreen_enabled(self):
         self.setWindowState(Qt.WindowState.WindowMaximized)
-        self.button_fullscreen_window.setIcon(QIcon(vars_util.Directory_Manager.get_dir_image_from_icons("fullscreen_2.png")))
+        self.button_fullscreen_window.setIcon(QIcon(file_explorer_manager.Directory_Manager.get_dir_image_from_icons("fullscreen_2.png")))
 
     def display_fullscreen_unenabled(self):
         self.setWindowState(Qt.WindowState.WindowActive)
-        self.button_fullscreen_window.setIcon(QIcon(vars_util.Directory_Manager.get_dir_image_from_icons("fullscreen.png")))
+        self.button_fullscreen_window.setIcon(QIcon(file_explorer_manager.Directory_Manager.get_dir_image_from_icons("fullscreen.png")))
 
     # MUST TAKE IN QPOINT
     def check_for_special_bounds(self, pos : QPoint):
         screen_area_geometry = QApplication.primaryScreen().geometry()
         screen_area_geometry = (screen_area_geometry.width(), screen_area_geometry.height())
 
-        taskbar_height = vars_util.Window_Config.get_taskbar_height()
+        taskbar_height = get_taskbar_height()
         # is window at top of screen?
         if pos.y() <= 0:
             return Special_Bounds_Keys.TOP_OF_SCREEN
@@ -188,12 +201,12 @@ class Main_Application(QMainWindow):
             return
         input_text = self.input_status_bar.text()
         if input_text == "":
-            input_text=vars_util.Directory_Manager.default_directory
-        input_text = vars_util.convert_to_path_str(input_text)
+            input_text=file_explorer_manager.Directory_Manager.default_directory
+        input_text = file_explorer_manager.convert_to_path_str(input_text)
         # handle doing
-        if vars_util.is_dir_given_path(input_text):
-            vars_util.Directory_Manager.current_directory = input_text
-            vars_util.Directory_Manager.current_directory_path = vars_util.Directory_Manager.split_path_into_list(vars_util.Directory_Manager.current_directory)
+        if file_explorer_manager.is_dir_given_path(input_text):
+            file_explorer_manager.Directory_Manager.current_directory = input_text
+            file_explorer_manager.Directory_Manager.current_directory_path = file_explorer_manager.Directory_Manager.split_path_into_list(file_explorer_manager.Directory_Manager.current_directory)
             self.update_file_explorer()
         else:
             pass
@@ -204,14 +217,14 @@ class Main_Application(QMainWindow):
 
     def up_parent_pressed(self):
         # means we're only looking at the drive
-        if len(vars_util.Directory_Manager.current_directory_path) == 1:
+        if len(file_explorer_manager.Directory_Manager.current_directory_path) == 1:
             return
-        if vars_util.Directory_Manager.current_directory_path[1] == "":
+        if file_explorer_manager.Directory_Manager.current_directory_path[1] == "":
             return
-        vars_util.Directory_Manager.current_directory_path.pop()
-        vars_util.Directory_Manager.current_directory = vars_util.Directory_Manager.compile_list_into_path(vars_util.Directory_Manager.current_directory_path)
+        file_explorer_manager.Directory_Manager.current_directory_path.pop()
+        file_explorer_manager.Directory_Manager.current_directory = file_explorer_manager.Directory_Manager.compile_list_into_path(file_explorer_manager.Directory_Manager.current_directory_path)
 
-        self.input_status_bar.setText(vars_util.Directory_Manager.current_directory)
+        self.input_status_bar.setText(file_explorer_manager.Directory_Manager.current_directory)
         self.update_file_explorer()
 
     def explorer_tab_button_clicked(self):
@@ -279,7 +292,7 @@ class Main_Application(QMainWindow):
             event.accept()
 
     def open_file_explorer(self):
-        subprocess_run(vars_util.get_open_file_explorer_command())
+        subprocess_run(file_explorer_manager.get_open_file_explorer_command())
 
     def mousePressEvent(self, event):
         self.click_position = event.globalPosition().toPoint()
