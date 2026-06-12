@@ -18,7 +18,7 @@ class File_Explorer_Table_Config:
     TYPE_COL_WIDTH = 100
     SIZE_COL_WIDTH = 80
     
-class Window_Config():
+class Window_Config:
     min_width = 50
     min_height = 200
 

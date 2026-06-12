@@ -118,13 +118,14 @@ class Main_Application(QMainWindow):
 
         files = file_explorer_manager.get_files_in_cur_directory()
         row_count = 0
+        # TODO: add a multithreader so the files will load one at a time to prevent QT from freezing
         for file in files:
             self.file_explorer.insertRow(row_count)
 
             self.file_explorer.setCellWidget(row_count, File_Explorer_Keys.NAME, self.get_name_and_icon_for_table(file.file_name))
             self.file_explorer.setItem(row_count, File_Explorer_Keys.DATE_MODIFIED, QTableWidgetItem(file.get_date_modified_str()))
             self.file_explorer.setItem(row_count, File_Explorer_Keys.TYPE, QTableWidgetItem(file.extension.strip('.')))
-            if not file.point_is_dir():
+            if not file.point_is_folder():
                 self.file_explorer.setItem(row_count, File_Explorer_Keys.SIZE, QTableWidgetItem(file.get_size_str()))
             
             row_count += 1
@@ -201,14 +202,17 @@ class Main_Application(QMainWindow):
             return
         input_text = self.input_status_bar.text()
         if input_text == "":
-            input_text=file_explorer_manager.Directory_Manager.default_directory
+            input_text=file_explorer_manager.Directory_Manager.get_default_directory()
         input_text = file_explorer_manager.convert_to_path_str(input_text)
         # handle doing
         if file_explorer_manager.is_dir_given_path(input_text):
             file_explorer_manager.Directory_Manager.current_directory = input_text
             file_explorer_manager.Directory_Manager.current_directory_path = file_explorer_manager.Directory_Manager.split_path_into_list(file_explorer_manager.Directory_Manager.current_directory)
+            file_explorer_manager.Directory_Manager.navigated_paths.append(input_text)
+            # on index is the text the same thennnnn try.
             self.update_file_explorer()
         else:
+            # TODO: if the file is an actual file we'll try to open it.
             pass
 
     # todo
@@ -216,10 +220,7 @@ class Main_Application(QMainWindow):
         self.update_file_explorer()
 
     def up_parent_pressed(self):
-        # means we're only looking at the drive
-        if len(file_explorer_manager.Directory_Manager.current_directory_path) == 1:
-            return
-        if file_explorer_manager.Directory_Manager.current_directory_path[1] == "":
+        if file_explorer_manager.Directory_Manager.path_list_shows_only_drive(file_explorer_manager.Directory_Manager.current_directory_path):
             return
         file_explorer_manager.Directory_Manager.current_directory_path.pop()
         file_explorer_manager.Directory_Manager.current_directory = file_explorer_manager.Directory_Manager.compile_list_into_path(file_explorer_manager.Directory_Manager.current_directory_path)

@@ -9,3 +9,4 @@ resource/documentation.json
 venv/
 ENV/
 env/
+src/test_file_explorer_manager.py
