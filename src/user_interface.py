@@ -1,3 +1,21 @@
+"""
+Handles the user interface through QT in Python.
+The user interface is already created with a .ui file and is initialized in QT. 
+If there are any new UI elements that need to be added, it will be done in this script.
+
+This script also manages the user expereince.
+
+Todo:
+    * implemenet table_item_double_clicked method (partially)        A
+    * sorting based on either name/date modified/type/size
+    * information section (on right)                                 E
+    * "progress bar" for how much storage in partition drive         B
+    * navigating backwards should take you to the drives available to access                                           D
+        * this is followed with if at "drives" page and we press the up button, then desktop is the highest page
+    * icons for files (cause i need some)                            C
+    * right click implementation on files
+"""
+
 from PyQt6 import uic # allows to load ui
 from PyQt6.QtWidgets import (
     QApplication,
@@ -11,7 +29,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QVBoxLayout
 )
-from PyQt6.QtCore import Qt, QPoint
+from PyQt6.QtCore import Qt, QPoint, pyqtSignal
 from PyQt6.QtGui import QIcon, QPixmap
 import sys
 import src.configuration as configuration
@@ -100,6 +118,8 @@ class Main_Application(QMainWindow):
         self.button_refresh.clicked.connect(self.refresh_button_pressed)
         self.button_parent_directory.clicked.connect(self.up_parent_pressed)
 
+        self.file_explorer.cellDoubleClicked.connect(self.table_item_double_clicked)
+
     #
     # ui functions
     #
@@ -138,7 +158,7 @@ class Main_Application(QMainWindow):
 
         self.input_status_bar.setText(file_explorer_manager.Directory_Manager.current_directory)
         self.input_search_bar.setText("")
-        self.label_extra_information.setText(f"{len(files)} items in directory")
+        self.label_extra_information.setText(f"{row_count} items in directory")
 
         self.button_backwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_backwards())
         self.button_forwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_forwards())
@@ -218,12 +238,7 @@ class Main_Application(QMainWindow):
             input_text=file_explorer_manager.Directory_Manager.get_default_directory()
         input_text = file_explorer_manager.convert_to_path_str(input_text)
         # handle doing
-        if file_explorer_manager.is_dir_given_path(input_text):
-            file_explorer_manager.Directory_Manager.update_to_new_directory(input_text)
-            self.update_file_explorer()
-        else:
-            # TODO: if the file is an actual file we'll try to open it.
-            pass
+        self.try_open_given_directory(input_text)
 
     # todo
     def refresh_button_pressed(self):
@@ -320,6 +335,19 @@ class Main_Application(QMainWindow):
                 self.file_explorer.hideRow(index)
             else:
                 self.file_explorer.showRow(index)
+    
+    # todo: lets do this; if file then open with other logic, if folder then yk the drill
+    def table_item_double_clicked(self, row_cell_clicked, column_cell_clicked):
+        path_of_item = file_explorer_manager.get_abs_path(self.file_explorer.cellWidget(row_cell_clicked, column_cell_clicked).layout().itemAt(1).widget().text())
+        self.try_open_given_directory(path_of_item)
+
+    def try_open_given_directory(self, directory):
+        if file_explorer_manager.is_dir_given_path(directory):
+            file_explorer_manager.Directory_Manager.update_to_new_directory(directory)
+            self.update_file_explorer()
+        else:
+            # TODO: if the file is an actual file we'll try to open it.
+            pass
 
     def search_bar_enter_pressed(self):
         self.search_in_directory()

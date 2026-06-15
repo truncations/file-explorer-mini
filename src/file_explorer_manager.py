@@ -201,3 +201,6 @@ def get_files_in_cur_directory(search_string : str = ""):
     list_of_files = Directory_Manager.get_list_of_files(cur_dir)
     return list_of_files
     
+def get_abs_path(file_name):
+    # Returns most accurate OS path to the file.
+    return os.path.join(Directory_Manager.current_directory, file_name)
