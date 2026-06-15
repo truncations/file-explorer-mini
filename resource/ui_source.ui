@@ -1424,8 +1424,8 @@ QLabel {
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>243</width>
-                <height>225</height>
+                <width>671</width>
+                <height>498</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -1529,8 +1529,8 @@ QLabel {
                       <rect>
                        <x>0</x>
                        <y>0</y>
-                       <width>100</width>
-                       <height>30</height>
+                       <width>671</width>
+                       <height>183</height>
                       </rect>
                      </property>
                      <property name="styleSheet">
@@ -1617,10 +1617,10 @@ QLabel {
       </property>
       <property name="styleSheet">
        <string notr="true">QWidget {
-	background-color: #1F5600;
+	background-color: #1e5100;
 }</string>
       </property>
-      <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="5,0">
+      <layout class="QHBoxLayout" name="horizontalLayout_2" stretch="0,0">
        <property name="spacing">
         <number>0</number>
        </property>
@@ -1637,7 +1637,81 @@ QLabel {
         <number>0</number>
        </property>
        <item>
-        <widget class="QWidget" name="bar_storage" native="true"/>
+        <widget class="QWidget" name="bar_storage" native="true">
+         <property name="styleSheet">
+          <string notr="true">QProgressBar {
+	background-color: #1a4a00;
+}
+
+QWidget {
+	background-color: #1a4a00;
+}
+</string>
+         </property>
+         <widget class="QProgressBar" name="progress_bar_storage">
+          <property name="geometry">
+           <rect>
+            <x>0</x>
+            <y>0</y>
+            <width>571</width>
+            <height>23</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <family>Microsoft YaHei UI</family>
+            <pointsize>7</pointsize>
+            <kerning>true</kerning>
+           </font>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QProgressBar {
+	background-color: #1a4a00;
+	border: none;
+}
+
+QProgressBar::chunk {
+	background-color: #174200;
+}</string>
+          </property>
+          <property name="value">
+           <number>44</number>
+          </property>
+          <property name="textVisible">
+           <bool>false</bool>
+          </property>
+          <property name="orientation">
+           <enum>Qt::Orientation::Horizontal</enum>
+          </property>
+          <property name="invertedAppearance">
+           <bool>false</bool>
+          </property>
+         </widget>
+         <widget class="QLabel" name="display_storage">
+          <property name="geometry">
+           <rect>
+            <x>140</x>
+            <y>0</y>
+            <width>49</width>
+            <height>16</height>
+           </rect>
+          </property>
+          <property name="font">
+           <font>
+            <family>Microsoft YaHei UI</family>
+            <pointsize>7</pointsize>
+           </font>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">QLabel {
+	background-color: transparent;
+}</string>
+          </property>
+          <property name="text">
+           <string>A:// 83.2 GB free of 217 GB</string>
+          </property>
+         </widget>
+        </widget>
        </item>
        <item>
         <widget class="QLabel" name="label_extra_information">

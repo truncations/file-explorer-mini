@@ -6,10 +6,8 @@ If there are any new UI elements that need to be added, it will be done in this 
 This script also manages the user expereince.
 
 Todo:
-    * implemenet table_item_double_clicked method (partially)        A
     * sorting based on either name/date modified/type/size
     * information section (on right)                                 E
-    * "progress bar" for how much storage in partition drive         B
     * navigating backwards should take you to the drives available to access                                           D
         * this is followed with if at "drives" page and we press the up button, then desktop is the highest page
     * icons for files (cause i need some)                            C
@@ -27,7 +25,9 @@ from PyQt6.QtWidgets import (
     QWidget, 
     QSizePolicy,
     QLineEdit,
-    QVBoxLayout
+    QVBoxLayout,
+    QStackedLayout,
+    QProgressBar
 )
 from PyQt6.QtCore import Qt, QPoint, pyqtSignal
 from PyQt6.QtGui import QIcon, QPixmap
@@ -51,6 +51,11 @@ class File_Explorer_Keys:
     TYPE = 2
     SIZE = 3
 
+class Storage_Data_Keys:
+    TOTAL = 0
+    USED = 1
+    FREE = 2
+
 def get_taskbar_height():
     _height_screen_key = 3
 
@@ -69,13 +74,24 @@ class Main_Application(QMainWindow):
 
         Main_Application.app_ref = app_reference
         self.load_ui()
-        
+        self.design_layouts()
+
         self.setup_main_window_functions()
         self.setup_file_explorer_table()
 
         self.show_explorer_page()
 
         self.connect_events()
+
+    def design_layouts(self):
+        # setup for storage display on status bar
+        QStackedLayout_bar_storage = QStackedLayout()
+        QStackedLayout_bar_storage.setStackingMode(QStackedLayout.StackingMode.StackAll)
+        QStackedLayout_bar_storage.addWidget(self.display_storage)
+        QStackedLayout_bar_storage.addWidget(self.progress_bar_storage)
+        self.display_storage.raise_()
+        self.display_storage.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
+        self.bar_storage.setLayout(QStackedLayout_bar_storage)
 
     #
     # ui setup functions to ensure application runs as expected
@@ -163,6 +179,10 @@ class Main_Application(QMainWindow):
         self.button_backwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_backwards())
         self.button_forwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_forwards())
         self.button_parent_directory.setEnabled(not file_explorer_manager.Directory_Manager.path_list_shows_only_drive(file_explorer_manager.Directory_Manager.current_directory_path))
+
+        storage_data = file_explorer_manager.get_storage_data()
+        self.progress_bar_storage.setValue(int((storage_data[Storage_Data_Keys.USED]/storage_data[Storage_Data_Keys.TOTAL])*100))
+        self.display_storage.setText(f"{file_explorer_manager.convert_to_path_str(file_explorer_manager.Directory_Manager.current_directory_path[0])}// {file_explorer_manager.get_size_str(storage_data[Storage_Data_Keys.FREE])} free of {file_explorer_manager.get_size_str(storage_data[Storage_Data_Keys.TOTAL])}")
 
         #print(file_explorer_manager.Directory_Manager.navigated_paths, file_explorer_manager.Directory_Manager.navigated_paths_index)
 
@@ -337,8 +357,8 @@ class Main_Application(QMainWindow):
                 self.file_explorer.showRow(index)
     
     # todo: lets do this; if file then open with other logic, if folder then yk the drill
-    def table_item_double_clicked(self, row_cell_clicked, column_cell_clicked):
-        path_of_item = file_explorer_manager.get_abs_path(self.file_explorer.cellWidget(row_cell_clicked, column_cell_clicked).layout().itemAt(1).widget().text())
+    def table_item_double_clicked(self, row_cell_clicked):
+        path_of_item = file_explorer_manager.get_abs_path(self.file_explorer.cellWidget(row_cell_clicked, File_Explorer_Keys.NAME).layout().itemAt(1).widget().text())
         self.try_open_given_directory(path_of_item)
 
     def try_open_given_directory(self, directory):

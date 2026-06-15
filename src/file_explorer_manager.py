@@ -14,6 +14,7 @@ Todo:
 import os
 import datetime
 import src.configuration
+import shutil
 
 _work_directory = os.path.dirname(__file__)[:-len("src")]
 _resource_directory = os.path.join(_work_directory, "resource")
@@ -36,6 +37,7 @@ class Directory_Point:
     ]
     _BYTES_MULTIPLE_CONST = 1024
     _IS_DIRECTORY_KEY = "Folder"
+    _IS_FILE_KEY = "File"
 
     def __init__(self, path: str = "", file_name: str = "", extension: str = "", date_modified: float = 0.0, size: int = -1):
         self.path = path
@@ -90,6 +92,10 @@ class Directory_Manager:
     @staticmethod
     def get_dir_image_from_icons(image_file_name):
         return os.path.join(_resource_directory, "icons", image_file_name)
+    
+    @staticmethod
+    def dir_is_read_accessible(path):
+        return os.access(path, os.W_OK)
     
     # list_obj -> list of str(s)
     @staticmethod
@@ -163,13 +169,22 @@ class Directory_Manager:
         
         list_of_files = []
         for cur_file_name in os.listdir(directory):
+            full_directory = os.path.join(directory, cur_file_name)
             dir_point = Directory_Point(directory, cur_file_name)
+            attempt_access_as_dir = None
 
-            if os.path.isfile(os.path.join(directory, cur_file_name)):
-                dir_point.extension = cur_file_name[cur_file_name.index("."):]
+            if os.path.isfile(full_directory):
+                dir_point.extension = cur_file_name[cur_file_name.find("."):] if cur_file_name.find(".") != -1 else Directory_Point._IS_FILE_KEY
             else:
+                try:
+                    attempt_access_as_dir = os.listdir(full_directory)
+                except Exception:
+                    attempt_access_as_dir = None
+                finally:
+                    if attempt_access_as_dir is None:
+                        continue
                 dir_point.extension = Directory_Point._IS_DIRECTORY_KEY
-
+                
             # get date modified and size
             file_statistics = os.stat(dir_point.get_abs_path())
             file_modified_time = file_statistics.st_mtime
@@ -204,3 +219,19 @@ def get_files_in_cur_directory(search_string : str = ""):
 def get_abs_path(file_name):
     # Returns most accurate OS path to the file.
     return os.path.join(Directory_Manager.current_directory, file_name)
+
+def get_size_str(size):
+    _file_size_suffixes = [
+        "KB","MB","GB","TB","PB","EB","ZB","YB",
+    ]
+
+    # Returns the size of the file under a suffix if neccessary.
+    amt_after_multiple = size
+    for multiple in Directory_Point._file_size_suffixes:
+        amt_after_multiple = amt_after_multiple / Directory_Point._BYTES_MULTIPLE_CONST
+        if amt_after_multiple <= Directory_Point._BYTES_MULTIPLE_CONST:
+            return f"{amt_after_multiple:.2f} {multiple}"
+        
+def get_storage_data():
+    total, used, free = shutil.disk_usage(Directory_Manager.current_directory_path[0])
+    return (total, used, free)
