@@ -75,8 +75,8 @@ class Directory_Manager:
     current_directory_path = None
 
     # stores paths for navigation, so that we can use the backwards/forwards buttons.
-    navigated_paths = []
-    navigated_paths_index = len(navigated_paths)-1
+    navigated_paths = [current_directory]
+    navigated_paths_index = 0
 
     @staticmethod
     def get_default_directory():
@@ -113,6 +113,49 @@ class Directory_Manager:
         if Directory_Manager.path_list_shows_only_drive(path_list):
             return path_list[0] + os.sep
         return (os.sep).join(path_list)
+    
+    @staticmethod
+    def update_current_directory(new_dir: str):
+        Directory_Manager.current_directory = new_dir
+        Directory_Manager.current_directory_path = Directory_Manager.split_path_into_list(Directory_Manager.current_directory)
+
+    @staticmethod
+    def update_to_new_directory(new_dir: str):
+        if Directory_Manager.navigated_paths_index < len(Directory_Manager.navigated_paths) and Directory_Manager.navigated_paths[Directory_Manager.navigated_paths_index] == Directory_Manager.current_directory:
+            Directory_Manager.navigated_paths = Directory_Manager.navigated_paths[:Directory_Manager.navigated_paths_index+1]
+            print("good")
+        Directory_Manager.update_current_directory(new_dir)
+
+        # conditional edge case where user could enter the same directory after the directory was added to navigated_paths (at the end) and press enter and it would add the directory, even though it already exists at the end, adding redundancy.
+        if Directory_Manager.navigated_paths[Directory_Manager.navigated_paths_index] != Directory_Manager.current_directory:
+            Directory_Manager.navigated_paths.append(Directory_Manager.current_directory)
+            Directory_Manager.navigated_paths_index = len(Directory_Manager.navigated_paths)-1
+
+    @staticmethod
+    def can_navigate_backwards():
+        return Directory_Manager.navigated_paths_index > 0
+
+    @staticmethod
+    def can_navigate_forwards():
+        return Directory_Manager.navigated_paths_index+1 < len(Directory_Manager.navigated_paths) and len(Directory_Manager.navigated_paths) > 0
+    
+    @staticmethod
+    def navigate_backwards():
+        Directory_Manager.navigated_paths_index -= 1
+        Directory_Manager.update_current_directory(Directory_Manager.navigated_paths[Directory_Manager.navigated_paths_index])
+
+    @staticmethod
+    def navigate_forwards():
+        Directory_Manager.navigated_paths_index += 1
+        Directory_Manager.update_current_directory(Directory_Manager.navigated_paths[Directory_Manager.navigated_paths_index])
+
+    @staticmethod
+    def navigate_upwards():
+        Directory_Manager.current_directory_path.pop()
+        Directory_Manager.current_directory = Directory_Manager.compile_list_into_path(Directory_Manager.current_directory_path)
+
+        Directory_Manager.navigated_paths.append(Directory_Manager.current_directory)
+        Directory_Manager.navigated_paths_index = len(Directory_Manager.navigated_paths)-1
     
     @staticmethod
     def get_list_of_files(directory):

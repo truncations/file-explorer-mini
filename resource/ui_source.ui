@@ -556,6 +556,9 @@ QPushButton:pressed {
          </property>
          <item>
           <widget class="QPushButton" name="button_backwards">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Ignored">
              <horstretch>0</horstretch>
@@ -576,7 +579,9 @@ QPushButton:pressed {
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>icons/left_arrow.png</normaloff>icons/left_arrow.png</iconset>
+             <normaloff>icons/left_arrow.png</normaloff>
+             <disabledoff>icons/left_arrow_disabled.png</disabledoff>
+             <disabledon>icons/left_arrow_disabled.png</disabledon>icons/left_arrow.png</iconset>
            </property>
            <property name="flat">
             <bool>false</bool>
@@ -585,6 +590,9 @@ QPushButton:pressed {
          </item>
          <item>
           <widget class="QPushButton" name="button_forwards">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Ignored">
              <horstretch>0</horstretch>
@@ -602,7 +610,9 @@ QPushButton:pressed {
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>icons/right_arrow.png</normaloff>icons/right_arrow.png</iconset>
+             <normaloff>icons/right_arrow.png</normaloff>
+             <disabledoff>icons/right_arrow_disabled.png</disabledoff>
+             <disabledon>icons/right_arrow_disabled.png</disabledon>icons/right_arrow.png</iconset>
            </property>
            <property name="flat">
             <bool>false</bool>
@@ -611,6 +621,9 @@ QPushButton:pressed {
          </item>
          <item>
           <widget class="QPushButton" name="button_parent_directory">
+           <property name="enabled">
+            <bool>false</bool>
+           </property>
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Ignored">
              <horstretch>0</horstretch>
@@ -628,7 +641,9 @@ QPushButton:pressed {
            </property>
            <property name="icon">
             <iconset>
-             <normaloff>icons/up_arrow.png</normaloff>icons/up_arrow.png</iconset>
+             <normaloff>icons/up_arrow.png</normaloff>
+             <disabledoff>icons/up_arrow_disabled.png</disabledoff>
+             <disabledon>icons/up_arrow_disabled.png</disabledon>icons/up_arrow.png</iconset>
            </property>
            <property name="flat">
             <bool>false</bool>

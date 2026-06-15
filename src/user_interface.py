@@ -83,6 +83,9 @@ class Main_Application(QMainWindow):
         self.button_minimize_window.clicked.connect(self.minimize_window)
         self.button_fullscreen_window.clicked.connect(self.fullscreen_button_clicked)
 
+        self.button_backwards.clicked.connect(self.backwards_button_clicked)
+        self.button_forwards.clicked.connect(self.forwards_button_clicked)
+
         self.button_tab_backwards_compatibility.clicked.connect(self.open_file_explorer)
         self.button_tab_explorer.clicked.connect(self.explorer_tab_button_clicked)
         self.button_tab_media.clicked.connect(self.media_tab_button_clicked)
@@ -132,6 +135,12 @@ class Main_Application(QMainWindow):
 
         self.input_status_bar.setText(file_explorer_manager.Directory_Manager.current_directory)
         self.label_extra_information.setText(f"{len(files)} items in directory")
+
+        self.button_backwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_backwards())
+        self.button_forwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_forwards())
+        self.button_parent_directory.setEnabled(not file_explorer_manager.Directory_Manager.path_list_shows_only_drive(file_explorer_manager.Directory_Manager.current_directory_path))
+
+        print(file_explorer_manager.Directory_Manager.navigated_paths, file_explorer_manager.Directory_Manager.navigated_paths_index)
 
     def get_name_and_icon_for_table(self, name):
         base_widget = QWidget()
@@ -206,10 +215,7 @@ class Main_Application(QMainWindow):
         input_text = file_explorer_manager.convert_to_path_str(input_text)
         # handle doing
         if file_explorer_manager.is_dir_given_path(input_text):
-            file_explorer_manager.Directory_Manager.current_directory = input_text
-            file_explorer_manager.Directory_Manager.current_directory_path = file_explorer_manager.Directory_Manager.split_path_into_list(file_explorer_manager.Directory_Manager.current_directory)
-            file_explorer_manager.Directory_Manager.navigated_paths.append(input_text)
-            # on index is the text the same thennnnn try.
+            file_explorer_manager.Directory_Manager.update_to_new_directory(input_text)
             self.update_file_explorer()
         else:
             # TODO: if the file is an actual file we'll try to open it.
@@ -222,10 +228,7 @@ class Main_Application(QMainWindow):
     def up_parent_pressed(self):
         if file_explorer_manager.Directory_Manager.path_list_shows_only_drive(file_explorer_manager.Directory_Manager.current_directory_path):
             return
-        file_explorer_manager.Directory_Manager.current_directory_path.pop()
-        file_explorer_manager.Directory_Manager.current_directory = file_explorer_manager.Directory_Manager.compile_list_into_path(file_explorer_manager.Directory_Manager.current_directory_path)
-
-        self.input_status_bar.setText(file_explorer_manager.Directory_Manager.current_directory)
+        file_explorer_manager.Directory_Manager.navigate_upwards()
         self.update_file_explorer()
 
     def explorer_tab_button_clicked(self):
@@ -272,6 +275,16 @@ class Main_Application(QMainWindow):
             self.button_refresh.setVisible(False)
             self.input_search_bar.setVisible(False)
             self.search_button.setVisible(False)
+    
+    def backwards_button_clicked(self):
+        if file_explorer_manager.Directory_Manager.can_navigate_backwards():
+            file_explorer_manager.Directory_Manager.navigate_backwards()
+            self.update_file_explorer()
+
+    def forwards_button_clicked(self):
+        if file_explorer_manager.Directory_Manager.can_navigate_forwards():
+            file_explorer_manager.Directory_Manager.navigate_forwards()
+            self.update_file_explorer()
 
     def move_window_event(self, event):
         if self.isMaximized():
