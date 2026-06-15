@@ -157,30 +157,18 @@ class Directory_Manager:
         Directory_Manager.navigated_paths_index = len(Directory_Manager.navigated_paths)-1
     
     @staticmethod
-    def get_list_of_files(directory, search_string : str = ""):
+    def get_list_of_files(directory):
         if not os.path.exists(directory) or not os.path.isdir(directory):
             return []
         
         list_of_files = []
         for cur_file_name in os.listdir(directory):
-            file_full_name_data = None
-            file_extension = None
+            dir_point = Directory_Point(directory, cur_file_name)
 
             if os.path.isfile(os.path.join(directory, cur_file_name)):
-                file_full_name_data = cur_file_name.split(".")
-                file_extension = file_full_name_data[1]
-
-                if search_string not in file_full_name_data[0]:
-                    continue
+                dir_point.extension = cur_file_name[cur_file_name.index("."):]
             else:
-                file_full_name_data = cur_file_name
-                file_extension = Directory_Point._IS_DIRECTORY_KEY
-
-                if search_string not in file_full_name_data:
-                    continue
-            
-            dir_point = Directory_Point(directory, cur_file_name)
-            dir_point.extension = file_extension
+                dir_point.extension = Directory_Point._IS_DIRECTORY_KEY
 
             # get date modified and size
             file_statistics = os.stat(dir_point.get_abs_path())
@@ -210,6 +198,6 @@ def get_open_file_explorer_command():
 # RETURNS LIST OF vars_util.Directory_Point objects.
 def get_files_in_cur_directory(search_string : str = ""):
     cur_dir = Directory_Manager.current_directory
-    list_of_files = Directory_Manager.get_list_of_files(cur_dir, search_string)
+    list_of_files = Directory_Manager.get_list_of_files(cur_dir)
     return list_of_files
     

@@ -2,6 +2,7 @@ from PyQt6 import uic # allows to load ui
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
+    QTableWidget,
     QTableWidgetItem,
     QHBoxLayout,
     QLabel,
@@ -93,8 +94,8 @@ class Main_Application(QMainWindow):
 
         self.title_row.mouseMoveEvent = self.move_window_event
         self.input_status_bar.returnPressed.connect(self.status_bar_enter_pressed)
-        self.input_search_bar.returnPressed.connect(self.search_in_directory)
-        self.search_button.clicked.connect(self.search_in_directory)
+        self.input_search_bar.returnPressed.connect(self.search_bar_enter_pressed)
+        self.search_button.clicked.connect(self.search_button_clicked)
 
         self.button_refresh.clicked.connect(self.refresh_button_pressed)
         self.button_parent_directory.clicked.connect(self.up_parent_pressed)
@@ -117,11 +118,11 @@ class Main_Application(QMainWindow):
         self.input_status_bar.setReadOnly(True)
         self.input_status_bar.setText("SETTINGS")
 
-    def update_file_explorer(self, search_string : str = ""):
+    def update_file_explorer(self):
         self.file_explorer.clearContents()
         self.file_explorer.setRowCount(0)
 
-        files = file_explorer_manager.get_files_in_cur_directory(search_string)
+        files = file_explorer_manager.get_files_in_cur_directory()
         row_count = 0
         # TODO: add a multithreader so the files will load one at a time to prevent QT from freezing
         for file in files:
@@ -136,7 +137,7 @@ class Main_Application(QMainWindow):
             row_count += 1
 
         self.input_status_bar.setText(file_explorer_manager.Directory_Manager.current_directory)
-        self.input_search_bar.setText(search_string)
+        self.input_search_bar.setText("")
         self.label_extra_information.setText(f"{len(files)} items in directory")
 
         self.button_backwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_backwards())
@@ -312,8 +313,19 @@ class Main_Application(QMainWindow):
         subprocess_run(file_explorer_manager.get_open_file_explorer_command())
 
     def search_in_directory(self):
-        search_query = self.input_search_bar.text()
-        self.update_file_explorer(search_query)
+        search_query = self.input_search_bar.text().lower()
+
+        for index in range(self.file_explorer.rowCount()):
+            if search_query not in self.file_explorer.cellWidget(index, File_Explorer_Keys.NAME).layout().itemAt(1).widget().text().lower():
+                self.file_explorer.hideRow(index)
+            else:
+                self.file_explorer.showRow(index)
+
+    def search_bar_enter_pressed(self):
+        self.search_in_directory()
+    
+    def search_button_clicked(self):
+        self.search_in_directory()
 
     def mousePressEvent(self, event):
         self.click_position = event.globalPosition().toPoint()
