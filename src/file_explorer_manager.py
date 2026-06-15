@@ -174,7 +174,8 @@ class Directory_Manager:
             attempt_access_as_dir = None
 
             if os.path.isfile(full_directory):
-                dir_point.extension = cur_file_name[cur_file_name.find("."):] if cur_file_name.find(".") != -1 else Directory_Point._IS_FILE_KEY
+                extension_dot_index = cur_file_name.rfind(".")
+                dir_point.extension = cur_file_name[extension_dot_index:] if extension_dot_index != -1 else Directory_Point._IS_FILE_KEY
             else:
                 try:
                     attempt_access_as_dir = os.listdir(full_directory)
