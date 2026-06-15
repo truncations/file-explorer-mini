@@ -10,7 +10,6 @@ Todo:
     * information section (on right)                                 E
     * navigating backwards should take you to the drives available to access                                           D
         * this is followed with if at "drives" page and we press the up button, then desktop is the highest page
-    * icons for files (cause i need some)                            C
     * right click implementation on files
 """
 
@@ -27,9 +26,10 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QVBoxLayout,
     QStackedLayout,
-    QProgressBar
+    QProgressBar,
+    QFileIconProvider
 )
-from PyQt6.QtCore import Qt, QPoint, pyqtSignal
+from PyQt6.QtCore import Qt, QPoint, QFileInfo
 from PyQt6.QtGui import QIcon, QPixmap
 import sys
 import src.configuration as configuration
@@ -164,7 +164,7 @@ class Main_Application(QMainWindow):
         for file in files:
             self.file_explorer.insertRow(row_count)
 
-            self.file_explorer.setCellWidget(row_count, File_Explorer_Keys.NAME, self.get_name_and_icon_for_table(file.file_name))
+            self.file_explorer.setCellWidget(row_count, File_Explorer_Keys.NAME, self.get_name_and_icon_for_table(file))
             self.file_explorer.setItem(row_count, File_Explorer_Keys.DATE_MODIFIED, QTableWidgetItem(file.get_date_modified_str()))
             self.file_explorer.setItem(row_count, File_Explorer_Keys.TYPE, QTableWidgetItem(file.extension.strip('.')))
             if not file.point_is_folder():
@@ -186,19 +186,23 @@ class Main_Application(QMainWindow):
 
         #print(file_explorer_manager.Directory_Manager.navigated_paths, file_explorer_manager.Directory_Manager.navigated_paths_index)
 
-    def get_name_and_icon_for_table(self, name):
+    def get_name_and_icon_for_table(self, file):
         base_widget = QWidget()
         base_layout = QHBoxLayout()
+
+        icon_provider = QFileIconProvider()
+        pixmap_data = icon_provider.icon(QFileInfo(file.get_abs_path())).pixmap(32,32)
+        pixmap_data = pixmap_data if pixmap_data is not None else QPixmap(file_explorer_manager.Directory_Manager.get_dir_image_from_icons("default_no_file_icon.png"))
 
         base_widget.setStyleSheet("QWidget { background: transparent; }")
 
         file_icon_widget = QLabel("ENOUGH")
-        file_icon_widget.setPixmap(QPixmap(file_explorer_manager.Directory_Manager.get_dir_image_from_icons("default_no_file_icon.png")))
+        file_icon_widget.setPixmap(pixmap_data)
         file_icon_widget.setScaledContents(True)
         file_icon_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Ignored)
         file_icon_widget.setFixedSize(20,20)
 
-        file_name_widget = QLabel(name)
+        file_name_widget = QLabel(file.file_name)
         file_name_widget.setSizePolicy(QSizePolicy.Policy.Maximum,QSizePolicy.Policy.Ignored)
 
         base_layout.setContentsMargins(6,0,6,0)
