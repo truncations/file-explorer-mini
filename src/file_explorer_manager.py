@@ -123,7 +123,6 @@ class Directory_Manager:
     def update_to_new_directory(new_dir: str):
         if Directory_Manager.navigated_paths_index < len(Directory_Manager.navigated_paths) and Directory_Manager.navigated_paths[Directory_Manager.navigated_paths_index] == Directory_Manager.current_directory:
             Directory_Manager.navigated_paths = Directory_Manager.navigated_paths[:Directory_Manager.navigated_paths_index+1]
-            print("good")
         Directory_Manager.update_current_directory(new_dir)
 
         # conditional edge case where user could enter the same directory after the directory was added to navigated_paths (at the end) and press enter and it would add the directory, even though it already exists at the end, adding redundancy.
@@ -158,23 +157,30 @@ class Directory_Manager:
         Directory_Manager.navigated_paths_index = len(Directory_Manager.navigated_paths)-1
     
     @staticmethod
-    def get_list_of_files(directory):
-        if not os.path.exists(directory):
-            return []
-        if not os.path.isdir(directory):
+    def get_list_of_files(directory, search_string : str = ""):
+        if not os.path.exists(directory) or not os.path.isdir(directory):
             return []
         
         list_of_files = []
-        for file in os.listdir(directory):
-            cur_file = file
+        for cur_file_name in os.listdir(directory):
+            file_full_name_data = None
+            file_extension = None
 
-            dir_point = Directory_Point(directory, cur_file)
+            if os.path.isfile(os.path.join(directory, cur_file_name)):
+                file_full_name_data = cur_file_name.split(".")
+                file_extension = file_full_name_data[1]
 
-            # get extension
-            if os.path.isfile(dir_point.get_abs_path()):
-                dir_point.extension = cur_file[cur_file.index("."):]
+                if search_string not in file_full_name_data[0]:
+                    continue
             else:
-                dir_point.extension = Directory_Point._IS_DIRECTORY_KEY
+                file_full_name_data = cur_file_name
+                file_extension = Directory_Point._IS_DIRECTORY_KEY
+
+                if search_string not in file_full_name_data:
+                    continue
+            
+            dir_point = Directory_Point(directory, cur_file_name)
+            dir_point.extension = file_extension
 
             # get date modified and size
             file_statistics = os.stat(dir_point.get_abs_path())
@@ -202,8 +208,8 @@ def get_open_file_explorer_command():
     return [file_explorer_dir, cur_dir]
 
 # RETURNS LIST OF vars_util.Directory_Point objects.
-def get_files_in_cur_directory() -> list:
+def get_files_in_cur_directory(search_string : str = ""):
     cur_dir = Directory_Manager.current_directory
-    list_of_files = Directory_Manager.get_list_of_files(cur_dir)
+    list_of_files = Directory_Manager.get_list_of_files(cur_dir, search_string)
     return list_of_files
     

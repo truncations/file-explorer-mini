@@ -93,6 +93,8 @@ class Main_Application(QMainWindow):
 
         self.title_row.mouseMoveEvent = self.move_window_event
         self.input_status_bar.returnPressed.connect(self.status_bar_enter_pressed)
+        self.input_search_bar.returnPressed.connect(self.search_in_directory)
+        self.search_button.clicked.connect(self.search_in_directory)
 
         self.button_refresh.clicked.connect(self.refresh_button_pressed)
         self.button_parent_directory.clicked.connect(self.up_parent_pressed)
@@ -115,11 +117,11 @@ class Main_Application(QMainWindow):
         self.input_status_bar.setReadOnly(True)
         self.input_status_bar.setText("SETTINGS")
 
-    def update_file_explorer(self):
+    def update_file_explorer(self, search_string : str = ""):
         self.file_explorer.clearContents()
         self.file_explorer.setRowCount(0)
 
-        files = file_explorer_manager.get_files_in_cur_directory()
+        files = file_explorer_manager.get_files_in_cur_directory(search_string)
         row_count = 0
         # TODO: add a multithreader so the files will load one at a time to prevent QT from freezing
         for file in files:
@@ -140,7 +142,7 @@ class Main_Application(QMainWindow):
         self.button_forwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_forwards())
         self.button_parent_directory.setEnabled(not file_explorer_manager.Directory_Manager.path_list_shows_only_drive(file_explorer_manager.Directory_Manager.current_directory_path))
 
-        print(file_explorer_manager.Directory_Manager.navigated_paths, file_explorer_manager.Directory_Manager.navigated_paths_index)
+        #print(file_explorer_manager.Directory_Manager.navigated_paths, file_explorer_manager.Directory_Manager.navigated_paths_index)
 
     def get_name_and_icon_for_table(self, name):
         base_widget = QWidget()
@@ -307,6 +309,10 @@ class Main_Application(QMainWindow):
 
     def open_file_explorer(self):
         subprocess_run(file_explorer_manager.get_open_file_explorer_command())
+
+    def search_in_directory(self):
+        search_query = self.input_search_bar.text()
+        self.update_file_explorer(search_query)
 
     def mousePressEvent(self, event):
         self.click_position = event.globalPosition().toPoint()
