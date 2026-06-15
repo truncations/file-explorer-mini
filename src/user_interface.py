@@ -136,6 +136,7 @@ class Main_Application(QMainWindow):
             row_count += 1
 
         self.input_status_bar.setText(file_explorer_manager.Directory_Manager.current_directory)
+        self.input_search_bar.setText(search_string)
         self.label_extra_information.setText(f"{len(files)} items in directory")
 
         self.button_backwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_backwards())
