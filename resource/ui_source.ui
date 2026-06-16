@@ -112,7 +112,7 @@ QPushButton:hover {
             </font>
            </property>
            <property name="text">
-            <string>File Explorer+</string>
+            <string>File Explorer Mini</string>
            </property>
           </widget>
          </item>
