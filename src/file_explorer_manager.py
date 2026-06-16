@@ -16,6 +16,7 @@ import datetime
 import src.configuration
 import shutil
 import psutil
+import magic
 
 _work_directory = os.path.dirname(__file__)[:-len("src")]
 _resource_directory = os.path.join(_work_directory, "resource")
@@ -274,6 +275,19 @@ def get_total_storage_data():
 
 def get_storage_data(path):
     return shutil.disk_usage(path)
+
+def get_file_description(path, extension):
+    if extension == "Drive":
+        return f"{extension}\n\nA storage volume that contains files and folders."
+    elif extension == "Folder":
+        return f"{extension}\n\nA container used to organize files and subfolders in a filesystem."
+    try:
+        description = magic.from_file(path)
+        if description == "data":
+            description = "Unknown data file; No description can be provided."
+        return f"{extension}\n\n{description}"
+    except:
+        return f"{extension}\n\nUnknown file; No description can be provided."
     
 def get_storage_display_data(path):
     # returns value for SetValue in progress_bar_storage and a text for setText in display_storage

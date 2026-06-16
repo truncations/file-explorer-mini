@@ -831,7 +831,7 @@ QPushButton:pressed {
           <string notr="true"/>
          </property>
          <property name="currentIndex">
-          <number>1</number>
+          <number>0</number>
          </property>
          <widget class="QWidget" name="explorer_page">
           <property name="styleSheet">
@@ -1034,7 +1034,8 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
              <property name="font">
               <font>
                <family>Microsoft YaHei UI</family>
-               <fontweight>Light</fontweight>
+               <bold>false</bold>
+               <kerning>true</kerning>
               </font>
              </property>
              <property name="styleSheet">
@@ -1045,10 +1046,13 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
 }</string>
              </property>
              <property name="text">
-              <string>INFORMATION</string>
+              <string>Click on a file to see potential documentation about file for clarification.</string>
              </property>
              <property name="alignment">
               <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignTop</set>
+             </property>
+             <property name="wordWrap">
+              <bool>true</bool>
              </property>
             </widget>
            </item>
@@ -1424,8 +1428,8 @@ QLabel {
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>671</width>
-                <height>498</height>
+                <width>243</width>
+                <height>225</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -1529,8 +1533,8 @@ QLabel {
                       <rect>
                        <x>0</x>
                        <y>0</y>
-                       <width>671</width>
-                       <height>183</height>
+                       <width>100</width>
+                       <height>30</height>
                       </rect>
                      </property>
                      <property name="styleSheet">

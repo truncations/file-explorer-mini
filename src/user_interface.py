@@ -7,8 +7,6 @@ This script also manages the user expereince.
 
 Todo:
     * sorting based on either name/date modified/type/size
-    * information section (on right)                                 E
-        * this is followed with if at "drives" page and we press the up button, then desktop is the highest page
     * right click implementation on files
 """
 
@@ -128,7 +126,8 @@ class Main_Application(QMainWindow):
         self.button_refresh.clicked.connect(self.refresh_button_pressed)
         self.button_parent_directory.clicked.connect(self.up_parent_pressed)
 
-        self.file_explorer.cellDoubleClicked.connect(self.table_item_double_clicked)
+        self.file_explorer.cellClicked.connect(self.table_cell_clicked)
+        self.file_explorer.cellDoubleClicked.connect(self.table_cell_double_clicked)
 
     #
     # ui functions
@@ -169,6 +168,7 @@ class Main_Application(QMainWindow):
         self.input_status_bar.setText(file_explorer_manager.Directory_Manager.current_directory)
         self.input_search_bar.setText("")
         self.label_extra_information.setText(f"{row_count} items in directory")
+        self.documentation.setText("Click on a file to see potential documentation about file for clarification.")
 
         self.button_backwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_backwards())
         self.button_forwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_forwards())
@@ -352,9 +352,15 @@ class Main_Application(QMainWindow):
                 self.file_explorer.showRow(index)
     
     # todo: lets do this; if file then open with other logic, if folder then yk the drill
-    def table_item_double_clicked(self, row_cell_clicked):
+    def table_cell_double_clicked(self, row_cell_clicked):
         path_of_item = file_explorer_manager.get_abs_path(self.file_explorer.cellWidget(row_cell_clicked, File_Explorer_Keys.NAME).layout().itemAt(1).widget().text())
         self.try_open_given_directory(path_of_item)
+
+    def table_cell_clicked(self, row_cell_clicked):
+        path_of_item = file_explorer_manager.get_abs_path(self.file_explorer.cellWidget(row_cell_clicked, File_Explorer_Keys.NAME).layout().itemAt(1).widget().text())
+        extension_of_item = self.file_explorer.item(row_cell_clicked, File_Explorer_Keys.TYPE).text()
+        description = file_explorer_manager.get_file_description(path_of_item, extension_of_item)
+        self.documentation.setText(description)
 
     def try_open_given_directory(self, directory):
         if file_explorer_manager.is_dir_given_path(directory):
