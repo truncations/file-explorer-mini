@@ -194,8 +194,14 @@ class Directory_Manager:
             dir_point = Directory_Point(directory, cur_file_name)
             attempt_access_as_dir = None
 
+            # get date modified and size
+            file_statistics = os.stat(dir_point.get_abs_path())
+            file_modified_time = file_statistics.st_mtime
+            file_size = file_statistics.st_size
+
             if directory == drives_directory:
                 dir_point.extension = Directory_Point._IS_DRIVE_KEY
+                file_size = get_storage_data(full_directory).total
             elif os.path.isfile(full_directory):
                 extension_dot_index = cur_file_name.rfind(".")
                 dir_point.extension = cur_file_name[extension_dot_index:] if extension_dot_index != -1 else Directory_Point._IS_FILE_KEY
@@ -208,11 +214,6 @@ class Directory_Manager:
                     if attempt_access_as_dir is None:
                         continue
                 dir_point.extension = Directory_Point._IS_DIRECTORY_KEY
-                
-            # get date modified and size
-            file_statistics = os.stat(dir_point.get_abs_path())
-            file_modified_time = file_statistics.st_mtime
-            file_size = file_statistics.st_size
 
             dir_point.date_modified = file_modified_time
             dir_point.size = file_size
@@ -266,14 +267,13 @@ def get_total_storage_data():
     total, used, free = 0, 0, 0
     for drive in get_list_of_drives_available():
         storage_data = get_storage_data(drive)
-        total += storage_data[0]
-        used += storage_data[1]
-        free += storage_data[2]
+        total += storage_data.total
+        used += storage_data.used
+        free += storage_data.free
     return (total, used, free)
 
 def get_storage_data(path):
-    total, used, free = shutil.disk_usage(path) # i might use this
-    return (total, used, free)
+    return shutil.disk_usage(path)
     
 def get_storage_display_data(path):
     # returns value for SetValue in progress_bar_storage and a text for setText in display_storage
@@ -285,7 +285,7 @@ def get_storage_display_data(path):
         s_format = f"Overall: {get_size_str(storage_data[2])} free of {get_size_str(storage_data[0])}"
     else:
         storage_data = get_storage_data(path)
-        s_format = f"{convert_to_path_str(Directory_Manager.current_directory_path[0]).strip('\\')}// {get_size_str(storage_data[2])} free of {get_size_str(storage_data[0])}"
+        s_format = f"{convert_to_path_str(Directory_Manager.current_directory_path[0]).strip('\\')}// {get_size_str(storage_data.free)} free of {get_size_str(storage_data.total)}"
     
     percentage = int((storage_data[1]/storage_data[0])*100)
 
