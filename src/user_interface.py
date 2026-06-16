@@ -8,7 +8,6 @@ This script also manages the user expereince.
 Todo:
     * sorting based on either name/date modified/type/size
     * information section (on right)                                 E
-    * navigating backwards should take you to the drives available to access                                           D
         * this is followed with if at "drives" page and we press the up button, then desktop is the highest page
     * right click implementation on files
 """
@@ -50,11 +49,6 @@ class File_Explorer_Keys:
     DATE_MODIFIED = 1
     TYPE = 2
     SIZE = 3
-
-class Storage_Data_Keys:
-    TOTAL = 0
-    USED = 1
-    FREE = 2
 
 def get_taskbar_height():
     _height_screen_key = 3
@@ -178,12 +172,11 @@ class Main_Application(QMainWindow):
 
         self.button_backwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_backwards())
         self.button_forwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_forwards())
-        self.button_parent_directory.setEnabled(not file_explorer_manager.Directory_Manager.path_list_shows_only_drive(file_explorer_manager.Directory_Manager.current_directory_path))
+        self.button_parent_directory.setEnabled(not file_explorer_manager.Directory_Manager.current_directory_is_drives())
 
-        storage_data = file_explorer_manager.get_storage_data()
-        self.progress_bar_storage.setValue(int((storage_data[Storage_Data_Keys.USED]/storage_data[Storage_Data_Keys.TOTAL])*100))
-        self.display_storage.setText(f"{file_explorer_manager.convert_to_path_str(file_explorer_manager.Directory_Manager.current_directory_path[0])}// {file_explorer_manager.get_size_str(storage_data[Storage_Data_Keys.FREE])} free of {file_explorer_manager.get_size_str(storage_data[Storage_Data_Keys.TOTAL])}")
-
+        storage_data = file_explorer_manager.get_storage_display_data(file_explorer_manager.Directory_Manager.current_directory_path[0])
+        self.progress_bar_storage.setValue(storage_data[0])
+        self.display_storage.setText(storage_data[1])
         #print(file_explorer_manager.Directory_Manager.navigated_paths, file_explorer_manager.Directory_Manager.navigated_paths_index)
 
     def get_name_and_icon_for_table(self, file):
@@ -269,8 +262,6 @@ class Main_Application(QMainWindow):
         self.update_file_explorer()
 
     def up_parent_pressed(self):
-        if file_explorer_manager.Directory_Manager.path_list_shows_only_drive(file_explorer_manager.Directory_Manager.current_directory_path):
-            return
         file_explorer_manager.Directory_Manager.navigate_upwards()
         self.update_file_explorer()
 
