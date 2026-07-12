@@ -47,6 +47,7 @@ class Directory_Point:
     _IS_DRIVE_KEY = "Drive"
     _IS_FILE_KEY = "File"
 
+    # revise: dataclass
     def __init__(self, path: str = "", file_name: str = "", extension: str = "", date_modified: float = 0.0, size: int = -1):
         self.path = path
         self.file_name = file_name
@@ -55,16 +56,20 @@ class Directory_Point:
         self.date_modified = date_modified
         self.size = size
 
+    # revise: global scope
     def point_is_folder(self):
         return self.extension == Directory_Point._IS_DIRECTORY_KEY
     
+    # revise: global scope
     def get_abs_path(self):
         # Returns most accurate OS path to the file.
         return os.path.join(self.path, self.file_name)
     
+    # revise: global scope
     def get_date_modified_str(self):
         return datetime.datetime.fromtimestamp(self.date_modified).strftime(Directory_Point._time_format_str)
     
+    # revise: global scope
     def get_size_str(self):
         # Returns the size of the file under a suffix if neccessary.
         amt_after_multiple = self.size
@@ -72,7 +77,8 @@ class Directory_Point:
             amt_after_multiple = amt_after_multiple / Directory_Point._BYTES_MULTIPLE_CONST
             if amt_after_multiple <= Directory_Point._BYTES_MULTIPLE_CONST:
                 return f"{amt_after_multiple:.2f} {multiple}"
-            
+    
+    # revise: in data class for debugigng 
     def __str__(self):
         # FOR DEBUGGING PURPOSES.
         return f"{self.get_abs_path()}, date modified: {self.get_date_modified_str()}, size: {self.get_size_str()}"
@@ -92,15 +98,18 @@ class Directory_Manager:
     def get_default_directory():
         return _default_directory
 
+    # MOVED TO RESOURCE_FILE_GETTER
     @staticmethod
     def get_dir_ui_file(ui_file_name):
         return os.path.join(_resource_directory, ui_file_name)
 
     # MUST INCLUDE FILE EXTENSION.
+    # MOVED TO RESOURCE_FILE_GETTER
     @staticmethod
     def get_dir_image_from_icons(image_file_name):
         return os.path.join(_resource_directory, "icons", image_file_name)
     
+    # DELETE
     @staticmethod
     def dir_is_read_accessible(path):
         return os.access(path, os.W_OK)
@@ -122,6 +131,7 @@ class Directory_Manager:
     def path_list_shows_only_drive(path_list):
         return len(path_list) == 1
     
+    # GLOBAL
     @staticmethod
     def current_directory_is_drives():
         return Directory_Manager.current_directory == drives_directory
@@ -147,6 +157,7 @@ class Directory_Manager:
         if Directory_Manager.navigated_paths[Directory_Manager.navigated_paths_index] != Directory_Manager.current_directory:
             Directory_Manager.navigated_paths.append(Directory_Manager.current_directory)
             Directory_Manager.navigated_paths_index = len(Directory_Manager.navigated_paths)-1
+
 
     @staticmethod
     def can_navigate_backwards():
