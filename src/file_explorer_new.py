@@ -233,12 +233,17 @@ class Resource_File_Getter:
         assert extension != "" or image_file_name.rfind(".") != -1, "class: Resource_File_Getter from get_dir_image_from_icons: NO FILE EXTENSION DETECTED FOR 'image_file_name'"
         return os.path.join(_resource_directory, "icons", image_file_name)
 
+# do this and put everything "else" in here
+class Utility:
+    pass
+
+# make it so that you can also try checking the str
 def directory_is_folder(dir_data: Directory) -> bool:
     return dir_data.extension == _directory_extension
-
+# make it so that you can also try checking the str
 def directory_is_drive(dir_data: Directory) -> bool:
     return dir_data.extension == _drive_extension
-
+# make it so that you can also try checking the str
 def directory_is_file(dir_data: Directory) -> bool:
     return dir_data.extension == _file_extension
 
