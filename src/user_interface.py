@@ -35,8 +35,6 @@ import src.backend as backend
 from subprocess import run as subprocess_run
 from win32api import GetMonitorInfo, MonitorFromPoint
 
-_ui_src_file_name = "ui_source.ui"
-
 class Special_Bounds_Keys:
     TOP_OF_SCREEN = 1
     BOTTOM_OF_SCREEN = -1
