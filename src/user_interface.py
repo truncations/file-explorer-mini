@@ -101,7 +101,7 @@ class Main_Application(QMainWindow):
         self.file_explorer.setColumnWidth(File_Explorer_Keys.SIZE, configuration.File_Explorer_Table_Config.SIZE_COL_WIDTH)
 
     def load_ui(self):
-        uic.load_ui.loadUi(file_explorer_manager.Directory_Manager.get_dir_ui_file(_ui_src_file_name), self)
+        uic.load_ui.loadUi(file_explorer_manager.Resource_File_Getter.get_dir_ui_file(), self)
 
     def connect_events(self):
         self.button_close_window.clicked.connect(self.close_window)
@@ -138,7 +138,7 @@ class Main_Application(QMainWindow):
     def show_media_page(self):
         self.main_content.setCurrentIndex(1)
         self.input_status_bar.setReadOnly(True)
-        self.input_status_bar.setText(file_explorer_manager.Directory_Manager.current_directory)
+        self.input_status_bar.setText(file_explorer_manager.Path_Manager.current_path)
 
     def show_settings_page(self):
         self.main_content.setCurrentIndex(2)
@@ -149,7 +149,7 @@ class Main_Application(QMainWindow):
         self.file_explorer.clearContents()
         self.file_explorer.setRowCount(0)
 
-        files = file_explorer_manager.get_files_in_cur_directory()
+        files = file_explorer_manager.Path_Manager.get_list_of_entries_in_cur_path()
         row_count = 0
         # TODO: add a multithreader so the files will load one at a time to prevent QT from freezing
         for file in files:
@@ -158,32 +158,32 @@ class Main_Application(QMainWindow):
             self.file_explorer.setCellWidget(row_count, File_Explorer_Keys.NAME, self.get_name_and_icon_for_table(file))
             self.file_explorer.setItem(row_count, File_Explorer_Keys.DATE_MODIFIED, QTableWidgetItem(file.get_date_modified_str()))
             self.file_explorer.setItem(row_count, File_Explorer_Keys.TYPE, QTableWidgetItem(file.extension.strip('.')))
-            if not file.point_is_folder():
-                self.file_explorer.setItem(row_count, File_Explorer_Keys.SIZE, QTableWidgetItem(file.get_size_str()))
+            if not file_explorer_manager.Path_Manager.entry_is_folder(file):
+                self.file_explorer.setItem(row_count, File_Explorer_Keys.SIZE, QTableWidgetItem(file_explorer_manager.UI_Display_Utility.get_size_str(file.size)))
             
             row_count += 1
 
-        self.input_status_bar.setText(file_explorer_manager.Directory_Manager.current_directory)
+        self.input_status_bar.setText(file_explorer_manager.Path_Manager.current_path)
         self.input_search_bar.setText("")
         self.label_extra_information.setText(f"{row_count} items in directory")
         self.documentation.setText("Click on a file to see potential documentation about file for clarification.")
 
-        self.button_backwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_backwards())
-        self.button_forwards.setEnabled(file_explorer_manager.Directory_Manager.can_navigate_forwards())
-        self.button_parent_directory.setEnabled(not file_explorer_manager.Directory_Manager.current_directory_is_drives())
+        self.button_backwards.setEnabled(file_explorer_manager.Path_Manager.can_navigate_backwards())
+        self.button_forwards.setEnabled(file_explorer_manager.Path_Manager.can_navigate_forwards())
+        self.button_parent_directory.setEnabled(not file_explorer_manager.Path_Manager.is_current_path_drives())
 
-        storage_data = file_explorer_manager.get_storage_display_data(file_explorer_manager.Directory_Manager.current_directory_path[0])
+        storage_data = file_explorer_manager.UI_Display_Utility.get_storage_display_data(file_explorer_manager.Path_Manager.current_path_compiled[0])
         self.progress_bar_storage.setValue(storage_data[0])
         self.display_storage.setText(storage_data[1])
         #print(file_explorer_manager.Directory_Manager.navigated_paths, file_explorer_manager.Directory_Manager.navigated_paths_index)
 
-    def get_name_and_icon_for_table(self, file):
+    def get_name_and_icon_for_table(self, file: file_explorer_manager.Entry):
         base_widget = QWidget()
         base_layout = QHBoxLayout()
 
         icon_provider = QFileIconProvider()
-        pixmap_data = icon_provider.icon(QFileInfo(file.get_abs_path())).pixmap(32,32)
-        pixmap_data = pixmap_data if pixmap_data is not None else QPixmap(file_explorer_manager.Directory_Manager.get_dir_image_from_icons("default_no_file_icon.png"))
+        pixmap_data = icon_provider.icon(QFileInfo(file_explorer_manager.Path_Manager.get_abs_path(file.file_name))).pixmap(32,32)
+        pixmap_data = pixmap_data if pixmap_data is not None else QPixmap(file_explorer_manager.Resource_File_Getter.get_path_to_img("default_no_file_icon.png"))
 
         base_widget.setStyleSheet("QWidget { background: transparent; }")
 
@@ -208,11 +208,11 @@ class Main_Application(QMainWindow):
     # helpers for fullscreening
     def display_fullscreen_enabled(self):
         self.setWindowState(Qt.WindowState.WindowMaximized)
-        self.button_fullscreen_window.setIcon(QIcon(file_explorer_manager.Directory_Manager.get_dir_image_from_icons("fullscreen_2.png")))
+        self.button_fullscreen_window.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("fullscreen_2.png")))
 
     def display_fullscreen_unenabled(self):
         self.setWindowState(Qt.WindowState.WindowActive)
-        self.button_fullscreen_window.setIcon(QIcon(file_explorer_manager.Directory_Manager.get_dir_image_from_icons("fullscreen.png")))
+        self.button_fullscreen_window.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("fullscreen.png")))
 
     # MUST TAKE IN QPOINT
     def check_for_special_bounds(self, pos : QPoint):
@@ -250,8 +250,8 @@ class Main_Application(QMainWindow):
             return
         input_text = self.input_status_bar.text()
         if input_text == "":
-            input_text=file_explorer_manager.Directory_Manager.get_default_directory()
-        input_text = file_explorer_manager.convert_to_path_str(input_text)
+            input_text=file_explorer_manager._default_path
+        input_text = file_explorer_manager.Path_Manager.convert_str_to_path(input_text)
         # handle doing
         self.try_open_given_directory(input_text)
 
@@ -260,7 +260,7 @@ class Main_Application(QMainWindow):
         self.update_file_explorer()
 
     def up_parent_pressed(self):
-        file_explorer_manager.Directory_Manager.navigate_upwards()
+        file_explorer_manager.Path_Manager.navigate_upwards()
         self.update_file_explorer()
 
     def explorer_tab_button_clicked(self):
@@ -309,13 +309,13 @@ class Main_Application(QMainWindow):
             self.search_button.setVisible(False)
     
     def backwards_button_clicked(self):
-        if file_explorer_manager.Directory_Manager.can_navigate_backwards():
-            file_explorer_manager.Directory_Manager.navigate_backwards()
+        if file_explorer_manager.Path_Manager.can_navigate_backwards():
+            file_explorer_manager.Path_Manager.navigate_backwards()
             self.update_file_explorer()
 
     def forwards_button_clicked(self):
-        if file_explorer_manager.Directory_Manager.can_navigate_forwards():
-            file_explorer_manager.Directory_Manager.navigate_forwards()
+        if file_explorer_manager.Path_Manager.can_navigate_forwards():
+            file_explorer_manager.Path_Manager.navigate_forwards()
             self.update_file_explorer()
 
     def move_window_event(self, event):
@@ -338,7 +338,7 @@ class Main_Application(QMainWindow):
             event.accept()
 
     def open_file_explorer(self):
-        subprocess_run(file_explorer_manager.get_open_file_explorer_command())
+        subprocess_run(file_explorer_manager.Utility.get_open_file_explorer_command())
 
     def search_in_directory(self):
         search_query = self.input_search_bar.text().lower()
@@ -351,22 +351,22 @@ class Main_Application(QMainWindow):
     
     # todo: lets do this; if file then open with other logic, if folder then yk the drill
     def table_cell_double_clicked(self, row_cell_clicked):
-        path_of_item = file_explorer_manager.get_abs_path(self.file_explorer.cellWidget(row_cell_clicked, File_Explorer_Keys.NAME).layout().itemAt(1).widget().text())
+        path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self.file_explorer.cellWidget(row_cell_clicked, File_Explorer_Keys.NAME).layout().itemAt(1).widget().text())
         self.try_open_given_directory(path_of_item)
 
     def table_cell_clicked(self, row_cell_clicked):
-        path_of_item = file_explorer_manager.get_abs_path(self.file_explorer.cellWidget(row_cell_clicked, File_Explorer_Keys.NAME).layout().itemAt(1).widget().text())
+        path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self.file_explorer.cellWidget(row_cell_clicked, File_Explorer_Keys.NAME).layout().itemAt(1).widget().text())
         extension_of_item = self.file_explorer.item(row_cell_clicked, File_Explorer_Keys.TYPE).text()
-        description = file_explorer_manager.get_file_description(path_of_item, extension_of_item)
+        description = file_explorer_manager.UI_Display_Utility.get_file_description(path_of_item, extension_of_item)
         self.documentation.setText(description)
 
     def try_open_given_directory(self, directory):
-        if file_explorer_manager.is_dir_given_path(directory):
-            file_explorer_manager.Directory_Manager.update_to_new_directory(directory)
+        if file_explorer_manager.Path_Manager.path_is_folder(directory):
+            file_explorer_manager.Path_Manager.update_to_new_path(directory)
             self.update_file_explorer()
         else:
             # TODO: if the file is an actual file we'll try to open it.
-            pass
+            file_explorer_manager.Utility.open_file(directory)
 
     def search_bar_enter_pressed(self):
         self.search_in_directory()

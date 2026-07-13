@@ -5,12 +5,10 @@ Handles the main functionality of the File Explorer; file management such as:
     * Opening files/folders
     and more...
 
-This also manages directories.
-
-Todo:
-    * Implement opening files
+This also manages paths.
 """
 
+from dataclasses import dataclass
 import os
 import datetime
 import src.configuration
@@ -18,106 +16,91 @@ import shutil
 import psutil
 import magic
 
-_work_directory = os.path.dirname(__file__)[:-len("src")]
-_resource_directory = os.path.join(_work_directory, "resource")
-drives_directory = "Drives"
-_default_directory = drives_directory
+# used for project handling
+_work_path: str = os.path.dirname(__file__)[:-len("src")]
 
-# TODO: Probably delete this, having directory points is not necessary since the object itself is unutilized after creation.
-# we may simply handle the logic using the information implemented in the table from main.py
-# we use methods from here that is needed in user_interface.py that is native to all
-# however, Directory_Manager is okay. we'll do this rewriting AFTER completing all todos in user_interface.py
-class Directory_Point:
+# 
+_resource_path: str = os.path.join(_work_path, "resource")
+drives_path_name: str = "Drives" # custom name
+_default_path: str = drives_path_name
+_ui_src_file_name: str = "ui_source.ui"
+
+_directory_extension: str = "Folder"
+_drive_extension: str = "Drive"
+_file_extension: str = "File"
+
+_time_format_str: str = "%m/%d/%Y %I:%M %p"
+_file_size_suffixes: list[str] = [
+        "KB","MB","GB","TB","PB","EB","ZB","YB",
+    ]
+_BYTES_MULTIPLE_CONST: int = 1024
+
+@dataclass
+class Entry:
     """
-    File's path with some information like file extension, date modified, and size.
-    
+    An object based on the directory provided with some basic information like file extension, date modified, and size.
+
     Attributes:
         path: Path to the file.
         file_name: File name.
         extension: File extension; ex. .txt, .exe, .doc
         date_modified: Date of when the file was last modified.
+            * This is defined as a float, provided by os.stat(<>).st_mtime, which is converted back by gate_date_modified_str.
         size: Size of file (may not be accurate).
     """
-    _time_format_str = "%m/%d/%Y %I:%M %p"
-    _file_size_suffixes = [
-        "KB","MB","GB","TB","PB","EB","ZB","YB",
-    ]
-    _BYTES_MULTIPLE_CONST = 1024
-    _IS_DIRECTORY_KEY = "Folder"
-    _IS_DRIVE_KEY = "Drive"
-    _IS_FILE_KEY = "File"
+    path: str = ""
+    file_name: str = ""
+    extension: str = ""
+    date_modified: float = 0.0
+    size: int = -1
 
-    # revise: dataclass
-    def __init__(self, path: str = "", file_name: str = "", extension: str = "", date_modified: float = 0.0, size: int = -1):
-        self.path = path
-        self.file_name = file_name
+    def get_date_modified_str(self) -> str:
+        return datetime.datetime.fromtimestamp(self.date_modified).strftime(_time_format_str)
 
-        self.extension = extension
-        self.date_modified = date_modified
-        self.size = size
-
-    # revise: global scope
-    def point_is_folder(self):
-        return self.extension == Directory_Point._IS_DIRECTORY_KEY
-    
-    # revise: global scope
-    def get_abs_path(self):
-        # Returns most accurate OS path to the file.
-        return os.path.join(self.path, self.file_name)
-    
-    # revise: global scope
-    def get_date_modified_str(self):
-        return datetime.datetime.fromtimestamp(self.date_modified).strftime(Directory_Point._time_format_str)
-    
-    # revise: global scope
-    def get_size_str(self):
-        # Returns the size of the file under a suffix if neccessary.
-        amt_after_multiple = self.size
-        for multiple in Directory_Point._file_size_suffixes:
-            amt_after_multiple = amt_after_multiple / Directory_Point._BYTES_MULTIPLE_CONST
-            if amt_after_multiple <= Directory_Point._BYTES_MULTIPLE_CONST:
-                return f"{amt_after_multiple:.2f} {multiple}"
-    
-    # revise: in data class for debugigng 
-    def __str__(self):
+    def __str__(self) -> str:
         # FOR DEBUGGING PURPOSES.
-        return f"{self.get_abs_path()}, date modified: {self.get_date_modified_str()}, size: {self.get_size_str()}"
-    
-class Directory_Manager:
+        return f"{self.path}, date modified: {self.get_date_modified_str()}, size: {self.size}"
+
+class Path_Manager:
     """
-    Class to encapsulate all directory managing logic (including the tampering of class: Directory_Point).
+    Path management class to handle logic with paths, and whatnot.
+
+    Attributes:
+        current_path
+        current_path_compiled: Splits current_path into file_names by delimiter \\.
+        navigated_paths
+        navigated_paths_index: Index of current_path in navigated_paths (to make navigation like forwards/backwards functional)
+        entries_of_path: List of entries (files/folders) of a path.
     """
-    current_directory = _default_directory
-    current_directory_path = None
+    current_path: str = _default_path
+    """
+    I'm so bad at explaining this but:
+        * pairs with split_path_into_list()
+        * ex. current_path = C:\\Alpha\\Bravo\\Charlie\\Delta
+        * then: current_path_compiled = ["C:", "Alpha", "Bravo", "Charlie", "Delta"]
+    """
+    current_path_compiled: list[str] = None
 
-    # stores paths for navigation, so that we can use the backwards/forwards buttons.
-    navigated_paths = [current_directory]
-    navigated_paths_index = 0
+    # holds data about past navigated directories
+    navigated_paths: list[str] = [_default_path]
+    navigated_paths_index: int = 0
 
-    @staticmethod
-    def get_default_directory():
-        return _default_directory
+    entries_of_path: list[Entry] = []
 
-    # MOVED TO RESOURCE_FILE_GETTER
-    @staticmethod
-    def get_dir_ui_file(ui_file_name):
-        return os.path.join(_resource_directory, ui_file_name)
-
-    # MUST INCLUDE FILE EXTENSION.
-    # MOVED TO RESOURCE_FILE_GETTER
-    @staticmethod
-    def get_dir_image_from_icons(image_file_name):
-        return os.path.join(_resource_directory, "icons", image_file_name)
-    
-    # DELETE
-    @staticmethod
-    def dir_is_read_accessible(path):
-        return os.access(path, os.W_OK)
-    
-    # list_obj -> list of str(s)
-    @staticmethod
-    def split_path_into_list(directory):
-        path_list = [path for path in os.path.normpath(directory).split(os.sep)]
+    """
+        * Property Handling
+    """
+    @classmethod
+    def update_current_path(cls, new_current_path) -> str:
+        cls.current_path = new_current_path
+        cls.current_path_compiled = cls.split_path_into_list(cls.current_path)
+        
+    """
+        * Path Handling Logic Functions
+    """
+    @classmethod
+    def split_path_into_list(cls, path: str) -> list[str]:
+        path_list = [path_node for path_node in os.path.normpath(path).split(os.sep)]
 
         # handle error scenario for if any elements in the path list is somehow empty (causes errors)
         index = len(path_list)-1
@@ -127,192 +110,235 @@ class Directory_Manager:
 
         return path_list
     
-    @staticmethod
-    def path_list_shows_only_drive(path_list):
+    @classmethod
+    def path_list_shows_only_drive(cls, path_list: list[str]) -> bool:
         return len(path_list) == 1
-    
-    # GLOBAL
-    @staticmethod
-    def current_directory_is_drives():
-        return Directory_Manager.current_directory == drives_directory
-    
-    @staticmethod
-    def compile_list_into_path(path_list):
-        if Directory_Manager.path_list_shows_only_drive(path_list):
+
+    @classmethod
+    def convert_list_to_path(cls, path_list: list[str]) -> str:
+        if cls.path_list_shows_only_drive(path_list):
             return path_list[0] + os.sep
         return (os.sep).join(path_list)
     
-    @staticmethod
-    def update_current_directory(new_dir: str):
-        Directory_Manager.current_directory = new_dir
-        Directory_Manager.current_directory_path = Directory_Manager.split_path_into_list(Directory_Manager.current_directory)
+    @classmethod
+    def convert_str_to_path(cls, string: str) -> str:
+        if string[len(string)-1] != os.sep:
+            return os.path.normpath(string) + os.sep
+        return os.path.normpath(string)
 
-    @staticmethod
-    def update_to_new_directory(new_dir: str):
-        if Directory_Manager.navigated_paths_index < len(Directory_Manager.navigated_paths) and Directory_Manager.navigated_paths[Directory_Manager.navigated_paths_index] == Directory_Manager.current_directory:
-            Directory_Manager.navigated_paths = Directory_Manager.navigated_paths[:Directory_Manager.navigated_paths_index+1]
-        Directory_Manager.update_current_directory(new_dir)
+    @classmethod
+    def get_abs_path(cls, file_name: str) -> str:
+        # Returns most accurate OS path to the file.
+        return os.path.join(cls.current_path, file_name)
+
+    @classmethod
+    def can_navigate_upwards(cls) -> bool:
+        return cls.current_path != drives_path_name
+    
+    @classmethod
+    def can_navigate_backwards(cls) -> bool:
+        return cls.navigated_paths_index > 0
+
+    @classmethod
+    def can_navigate_forwards(cls) -> bool:
+        return cls.navigated_paths_index+1 < len(cls.navigated_paths) and len(cls.navigated_paths) > 0
+    
+    @classmethod
+    def is_current_path_drives(cls) -> bool:
+        return cls.current_path == drives_path_name
+
+    @classmethod
+    def navigate_backwards(cls) -> None:
+        cls.navigated_paths_index -= 1
+        cls.update_current_path(cls.navigated_paths[cls.navigated_paths_index])
+
+    @classmethod
+    def navigate_forwards(cls) -> None:
+        cls.navigated_paths_index += 1
+        cls.update_current_path(cls.navigated_paths[cls.navigated_paths_index])
+
+    @classmethod
+    def navigate_upwards(cls) -> None:
+        if cls.path_list_shows_only_drive(cls.current_path_compiled):
+            cls.update_current_path(drives_path_name)
+        else:
+            cls.current_path_compiled.pop()
+            cls.update_current_path(cls.convert_list_to_path(cls.current_path_compiled))
+            
+        cls.navigated_paths.append(cls.current_path)
+        cls.navigated_paths_index = len(cls.navigated_paths)-1
+
+    @classmethod
+    def update_to_new_path(cls, new_path: str) -> None:
+        if cls.navigated_paths_index < len(cls.navigated_paths) and cls.navigated_paths[cls.navigated_paths_index] == cls.current_path:
+            cls.navigated_paths = cls.navigated_paths[:cls.navigated_paths_index+1]
+        cls.update_current_path(new_path)
 
         # conditional edge case where user could enter the same directory after the directory was added to navigated_paths (at the end) and press enter and it would add the directory, even though it already exists at the end, adding redundancy.
-        if Directory_Manager.navigated_paths[Directory_Manager.navigated_paths_index] != Directory_Manager.current_directory:
-            Directory_Manager.navigated_paths.append(Directory_Manager.current_directory)
-            Directory_Manager.navigated_paths_index = len(Directory_Manager.navigated_paths)-1
-
-
-    @staticmethod
-    def can_navigate_backwards():
-        return Directory_Manager.navigated_paths_index > 0
-
-    @staticmethod
-    def can_navigate_forwards():
-        return Directory_Manager.navigated_paths_index+1 < len(Directory_Manager.navigated_paths) and len(Directory_Manager.navigated_paths) > 0
+        if cls.navigated_paths[cls.navigated_paths_index] != cls.current_path:
+            cls.navigated_paths.append(cls.current_path)
+            cls.navigated_paths_index = len(cls.navigated_paths)-1
     
     @staticmethod
-    def navigate_backwards():
-        Directory_Manager.navigated_paths_index -= 1
-        Directory_Manager.update_current_directory(Directory_Manager.navigated_paths[Directory_Manager.navigated_paths_index])
-
-    @staticmethod
-    def navigate_forwards():
-        Directory_Manager.navigated_paths_index += 1
-        Directory_Manager.update_current_directory(Directory_Manager.navigated_paths[Directory_Manager.navigated_paths_index])
-
-    @staticmethod
-    def navigate_upwards():
-        if Directory_Manager.path_list_shows_only_drive(Directory_Manager.current_directory_path):
-            Directory_Manager.current_directory = drives_directory
-            Directory_Manager.current_directory_path = Directory_Manager.split_path_into_list(Directory_Manager.current_directory)
-        else:
-            Directory_Manager.current_directory_path.pop()
-            Directory_Manager.current_directory = Directory_Manager.compile_list_into_path(Directory_Manager.current_directory_path)
-            
-        Directory_Manager.navigated_paths.append(Directory_Manager.current_directory)
-        Directory_Manager.navigated_paths_index = len(Directory_Manager.navigated_paths)-1
+    def entry_is_folder(entry_data: Entry) -> bool:
+        return entry_data.extension == _directory_extension
     
     @staticmethod
-    def get_list_of_files(directory):
+    def entry_is_drive(entry_data: Entry) -> bool:
+        return entry_data.extension == _drive_extension
+    
+    @staticmethod
+    def entry_is_file(entry_data: Entry) -> bool:
+        return entry_data.extension == _file_extension
+    
+    @staticmethod
+    def path_is_folder(path: str) -> bool:
+        return os.path.isdir(path)
+    
+    @staticmethod
+    def path_is_read_accessible(path) -> bool:
+        # use this as ref lowk im not making this a method
+        return os.access(path, os.R_OK)
+    
+    @classmethod
+    def get_list_of_entries_in_cur_path(cls) -> list[Entry]:
+        return cls.get_list_of_entries(cls.current_path)
+
+    @classmethod
+    def get_list_of_entries(cls, path: str) -> list[Entry]:
         directory_list = None
 
-        if directory == drives_directory:
-            directory_list = get_list_of_drives_available()
-        elif not os.path.exists(directory) or not os.path.isdir(directory):
-            return []
+        if path == drives_path_name:
+            directory_list = Utility.get_paths_of_drives_available()
+        elif not os.path.exists(path) or not os.path.isdir(path):
+            directory_list = []
         else:
-            directory_list = os.listdir(directory)
+            directory_list = os.listdir(path)
 
         list_of_files = []
         for cur_file_name in directory_list:
-            full_directory = os.path.join(directory, cur_file_name)
-            dir_point = Directory_Point(directory, cur_file_name)
-            attempt_access_as_dir = None
+            full_path_to_file = os.path.join(path, cur_file_name)
+            new_entry = Entry()
 
             # get date modified and size
-            file_statistics = os.stat(dir_point.get_abs_path())
+            file_statistics = os.stat(cls.get_abs_path(full_path_to_file))
             file_modified_time = file_statistics.st_mtime
             file_size = file_statistics.st_size
 
-            if directory == drives_directory:
-                dir_point.extension = Directory_Point._IS_DRIVE_KEY
-                file_size = get_storage_data(full_directory).total
-            elif os.path.isfile(full_directory):
+            if path == drives_path_name:
+                # assume all entries are drives
+                new_entry.extension = _drive_extension
+                file_size = shutil.disk_usage(full_path_to_file).total
+            elif os.path.isfile(full_path_to_file):
                 extension_dot_index = cur_file_name.rfind(".")
-                dir_point.extension = cur_file_name[extension_dot_index:] if extension_dot_index != -1 else Directory_Point._IS_FILE_KEY
-            else:
-                try:
-                    attempt_access_as_dir = os.listdir(full_directory)
-                except Exception:
-                    attempt_access_as_dir = None
-                finally:
-                    if attempt_access_as_dir is None:
-                        continue
-                dir_point.extension = Directory_Point._IS_DIRECTORY_KEY
+                new_entry.extension = cur_file_name[extension_dot_index:] if extension_dot_index != -1 else _file_extension
+            elif cls.path_is_read_accessible(full_path_to_file): # we know its a directory so can we read it?
+                new_entry.extension = _directory_extension
+            else: # if fail just skip we have no access to read
+                continue
 
-            dir_point.date_modified = file_modified_time
-            dir_point.size = file_size
+            new_entry.file_name = cur_file_name
+            new_entry.date_modified = file_modified_time
+            new_entry.size = file_size
 
-            list_of_files.append(dir_point)
-        return list_of_files
+            list_of_files.append(new_entry)
+
+        cls.entries_of_path = list_of_files[:]
+        return cls.entries_of_path
+
+class Resource_File_Getter:
+    """ Utility Class to allow files from resource folder to be utilized. """
+    @classmethod
+    def __new__(cls):
+        raise TypeError("class: Resource_File_Getter has permissions from __new__: CANNOT BE CREATED")
+
+    @staticmethod
+    def get_dir_ui_file() -> None:
+        return os.path.join(_resource_path, _ui_src_file_name)
     
-    # setup definitions for Directory_Manager variables if the methods above are required.
-    current_directory_path = split_path_into_list(current_directory)
+    @staticmethod
+    def get_path_to_img(image_file_name: str) -> str:
+        """WARNING: image_file_name must include extension."""
+        _, extension = os.path.splitext(image_file_name)
+        assert extension != "" or image_file_name.rfind(".") != -1, "class: Resource_File_Getter from get_dir_image_from_icons: NO FILE EXTENSION DETECTED FOR 'image_file_name'"
+        return os.path.join(_resource_path, "icons", image_file_name)
 
-def is_dir_given_path(directory):
-    return os.path.isdir(directory)
+class UI_Display_Utility:
+    """ Utility Class storing methods that utilize data to display information in a user-friendly manner. """
+    @staticmethod
+    def get_size_str(size) -> str:
+        _file_size_suffixes = [
+            "KB","MB","GB","TB","PB","EB","ZB","YB",
+        ]
 
-def convert_to_path_str(string):
-    if string[len(string)-1] != os.sep:
-        return os.path.normpath(string) + os.sep
-    return os.path.normpath(string)
-
-def get_open_file_explorer_command():
-    file_explorer_dir = os.path.join(os.getenv('WINDIR'), 'explorer.exe')
-    cur_dir = os.path.normpath(Directory_Manager.current_directory)
-    return [file_explorer_dir, cur_dir]
-
-# RETURNS LIST OF vars_util.Directory_Point objects.
-def get_files_in_cur_directory(search_string : str = ""):
-    cur_dir = Directory_Manager.current_directory
-    list_of_files = Directory_Manager.get_list_of_files(cur_dir)
-    return list_of_files
+        # Returns the size of the file under a suffix if neccessary.
+        amt_after_multiple = size
+        for multiple in _file_size_suffixes:
+            amt_after_multiple = amt_after_multiple / _BYTES_MULTIPLE_CONST
+            if amt_after_multiple <= _BYTES_MULTIPLE_CONST:
+                return f"{amt_after_multiple:.2f} {multiple}"
     
-def get_abs_path(file_name):
-    # Returns most accurate OS path to the file.
-    return os.path.join(Directory_Manager.current_directory, file_name)
+    @staticmethod
+    def get_total_storage_data() -> tuple:
+        total, used, free = 0, 0, 0
+        for drive in Utility.get_paths_of_drives_available():
+            storage_data = shutil.disk_usage(drive)
+            total += storage_data.total
+            used += storage_data.used
+            free += storage_data.free
+        return (total, used, free)
+    
+    @staticmethod
+    def get_file_description(path, extension) -> str:
+        if extension == "Drive":
+            return f"{extension}\n\nA storage volume that contains files and folders."
+        elif extension == "Folder":
+            return f"{extension}\n\nA container used to organize files and subfolders in a filesystem."
+        try:
+            description = magic.from_file(path)
+            if description == "data":
+                description = "Unknown data file; No description can be provided."
+            return f"{extension}\n\n{description}"
+        except:
+            return f"{extension}\n\nUnknown file; No description can be provided."
+    
+    # RENAME METHOD
+    @staticmethod
+    def get_storage_display_data(path) -> tuple[int, str]:
+        # returns value for SetValue in progress_bar_storage and a text for setText in display_storage
+        storage_data = None
+        s_format = ""
 
-def get_size_str(size):
-    _file_size_suffixes = [
-        "KB","MB","GB","TB","PB","EB","ZB","YB",
-    ]
-
-    # Returns the size of the file under a suffix if neccessary.
-    amt_after_multiple = size
-    for multiple in Directory_Point._file_size_suffixes:
-        amt_after_multiple = amt_after_multiple / Directory_Point._BYTES_MULTIPLE_CONST
-        if amt_after_multiple <= Directory_Point._BYTES_MULTIPLE_CONST:
-            return f"{amt_after_multiple:.2f} {multiple}"
+        if path == drives_path_name:
+            storage_data = UI_Display_Utility.get_total_storage_data()
+            s_format = f"Overall: {UI_Display_Utility.get_size_str(storage_data[2])} free of {UI_Display_Utility.get_size_str(storage_data[0])}"
+        else:
+            storage_data = shutil.disk_usage(path)
+            s_format = f"{Path_Manager.convert_str_to_path(Path_Manager.current_path_compiled[0]).strip('\\')}// {UI_Display_Utility.get_size_str(storage_data.free)} free of {UI_Display_Utility.get_size_str(storage_data.total)}"
         
-def get_list_of_drives_available():
-    # (device, mountpoint, fstype, opts)
-    return [convert_to_path_str(partition.device) for partition in psutil.disk_partitions()]
-        
-def get_total_storage_data():
-    total, used, free = 0, 0, 0
-    for drive in get_list_of_drives_available():
-        storage_data = get_storage_data(drive)
-        total += storage_data.total
-        used += storage_data.used
-        free += storage_data.free
-    return (total, used, free)
+        percentage = int((storage_data[1]/storage_data[0])*100)
 
-# really bro..
-def get_storage_data(path):
-    return shutil.disk_usage(path)
+        return (percentage, s_format)
 
-def get_file_description(path, extension):
-    if extension == "Drive":
-        return f"{extension}\n\nA storage volume that contains files and folders."
-    elif extension == "Folder":
-        return f"{extension}\n\nA container used to organize files and subfolders in a filesystem."
-    try:
-        description = magic.from_file(path)
-        if description == "data":
-            description = "Unknown data file; No description can be provided."
-        return f"{extension}\n\n{description}"
-    except:
-        return f"{extension}\n\nUnknown file; No description can be provided."
-    
-def get_storage_display_data(path):
-    # returns value for SetValue in progress_bar_storage and a text for setText in display_storage
-    storage_data = None
-    s_format = ""
+class Utility:
+    """
+    IMPLEMENTED VALIDS
+    """
+    @staticmethod
+    def get_open_file_explorer_command() -> tuple[str, str]:
+        file_explorer_dir = os.path.join(os.getenv('WINDIR'), 'explorer.exe')
+        cur_dir = os.path.normpath(Path_Manager.current_path)
+        return (file_explorer_dir, cur_dir)
 
-    if path == drives_directory:
-        storage_data = get_total_storage_data()
-        s_format = f"Overall: {get_size_str(storage_data[2])} free of {get_size_str(storage_data[0])}"
-    else:
-        storage_data = get_storage_data(path)
-        s_format = f"{convert_to_path_str(Directory_Manager.current_directory_path[0]).strip('\\')}// {get_size_str(storage_data.free)} free of {get_size_str(storage_data.total)}"
-    
-    percentage = int((storage_data[1]/storage_data[0])*100)
+    def get_paths_of_drives_available() -> list[str]:
+        # (device, mountpoint, fstype, opts)
+        return [Path_Manager.convert_str_to_path(partition.device) for partition in psutil.disk_partitions()]
 
-    return (percentage, s_format)
+    def open_file(path: str) -> None:
+        try:
+            os.startfile(path)
+        except:
+            pass
+
+# setup definitions for Directory_Manager variables if the methods above are required.
+Path_Manager.current_path_compiled = Path_Manager.split_path_into_list(Path_Manager.current_path)
