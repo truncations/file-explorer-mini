@@ -284,6 +284,7 @@ def get_total_storage_data():
         free += storage_data.free
     return (total, used, free)
 
+# really bro..
 def get_storage_data(path):
     return shutil.disk_usage(path)
 

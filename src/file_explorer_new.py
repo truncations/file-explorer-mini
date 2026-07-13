@@ -5,7 +5,7 @@ Handles the main functionality of the File Explorer; file management such as:
     * Opening files/folders
     and more...
 
-This also manages directories.
+This also manages paths.
 
 Todo:
     * Implement opening files
@@ -22,10 +22,13 @@ import shutil
 import psutil
 import magic
 
-_work_directory = os.path.dirname(__file__)[:-len("src")]
-_resource_directory = os.path.join(_work_directory, "resource")
-drives_directory: str = "Drives" # custom name
-_default_directory: str = drives_directory
+# used for project handling
+_work_path: str = os.path.dirname(__file__)[:-len("src")]
+
+# 
+_resource_path: str = os.path.join(_work_path, "resource")
+drives_path_name: str = "Drives" # custom name
+_default_path: str = drives_path_name
 _ui_src_file_name: str = "ui_source.ui"
 
 _directory_extension: str = "Folder"
@@ -39,7 +42,7 @@ _file_size_suffixes: list[str] = [
 _BYTES_MULTIPLE_CONST: int = 1024
 
 @dataclass
-class Directory:
+class Entry:
     """
     An object based on the directory provided with some basic information like file extension, date modified, and size.
 
@@ -64,28 +67,45 @@ class Directory:
         # FOR DEBUGGING PURPOSES.
         return f"{self.path}, date modified: {self.get_date_modified_str()}, size: {self.size}"
 
-class Directory_Manager:
+class Path_Manager:
     """
-    Class to encapsulate all directory managing logic (including the tampering of class: Directory_Point).
+    Class to encapsulate all path managing logic (including the tampering of class: Directory_Point).
 
-
+    REDO THIS
     """
-    current_directory: str = _default_directory
-    current_directory_path: list[str] = None
+    _current_path: str = _default_path
+    """
+    I'm so bad at explaining this but:
+        * pairs with split_path_into_list()
+        * ex. current_path = C:\Alpha\Bravo\Charlie\Delta
+        * then: current_path_compiled = ["C:\\", "Alpha", "Bravo", "Charlie", "Delta"]
+    """
+    current_path_compiled: list[str] = None
 
-    # stores paths for navigation, so that we can use the backwards/forwards buttons.
-    navigated_paths: list[str] = [current_directory]
+    # holds data about past navigated directories
+    navigated_paths: list[str] = [_default_path]
     navigated_paths_index: int = 0
 
-    directory_list_of_cur_dir: list[Directory] = []
+    entry_list_of_path: list[Entry] = []
+
+    """
+        * Property Handling
+    """
+    @property
+    def current_path(cls) -> str:
+        return cls._current_path
+    
+    @current_path.setter
+    def current_path(cls, new_current_path):
+        cls.current_path = new_current_path
+        cls.current_path_compiled = cls.split_path_into_list(cls.current_path)
 
     """
         * Path Handling Logic Functions
     """
     @classmethod
-    @staticmethod
-    def split_path_into_list(cls, directory: list[str]) -> list:
-        path_list = [path for path in os.path.normpath(directory).split(os.sep)]
+    def split_path_into_list(cls, path: list[str]) -> list[str]:
+        path_list = [path_node for path_node in os.path.normpath(path).split(os.sep)]
 
         # handle error scenario for if any elements in the path list is somehow empty (causes errors)
         index = len(path_list)-1
@@ -96,80 +116,100 @@ class Directory_Manager:
         return path_list
     
     @classmethod
-    @staticmethod
-    def path_list_shows_only_drive(cls, path_list):
+    def path_list_shows_only_drive(cls, path_list: list[str]) -> bool:
         return len(path_list) == 1
 
     @classmethod
-    @staticmethod
-    def compile_list_into_path(cls, path_list):
+    def convert_list_to_path(cls, path_list: list[str]) -> str:
         if cls.path_list_shows_only_drive(path_list):
             return path_list[0] + os.sep
         return (os.sep).join(path_list)
-
-    @classmethod
-    @staticmethod
-    def can_navigate_upwards(cls):
-        return cls.current_directory != drives_directory
     
     @classmethod
-    @staticmethod
-    def can_navigate_backwards(cls):
+    def convert_str_to_path(cls, string: str) -> str:
+        if string[len(string)-1] != os.sep:
+            return os.path.normpath(string) + os.sep
+        return os.path.normpath(string)
+
+    @classmethod
+    def get_abs_path(cls, file_name: str) -> str:
+        # Returns most accurate OS path to the file.
+        return os.path.join(cls.current_path, file_name)
+
+    @classmethod
+    def can_navigate_upwards(cls) -> bool:
+        return cls.current_path != drives_path_name
+    
+    @classmethod
+    def can_navigate_backwards(cls) -> bool:
         return cls.navigated_paths_index > 0
 
     @classmethod
-    @staticmethod
-    def can_navigate_forwards(cls):
+    def can_navigate_forwards(cls) -> bool:
         return cls.navigated_paths_index+1 < len(cls.navigated_paths) and len(cls.navigated_paths) > 0
     
     @classmethod
-    @staticmethod
-    def navigate_backwards(cls):
+    def navigate_backwards(cls) -> None:
         cls.navigated_paths_index -= 1
-        cls.update_current_directory(cls.navigated_paths[cls.navigated_paths_index])
+        cls.current_path = cls.navigated_paths[cls.navigated_paths_index]
 
     @classmethod
-    @staticmethod
-    def navigate_forwards(cls):
+    def navigate_forwards(cls) -> None:
         cls.navigated_paths_index += 1
-        cls.update_current_directory(cls.navigated_paths[cls.navigated_paths_index])
+        cls.current_path = cls.navigated_paths[cls.navigated_paths_index]
 
     @classmethod
-    @staticmethod
-    def navigate_upwards(cls):
-        if cls.path_list_shows_only_drive(cls.current_directory_path):
-            cls.current_directory = drives_directory
-            cls.current_directory_path = cls.split_path_into_list(cls.current_directory)
+    def navigate_upwards(cls) -> None:
+        if cls.path_list_shows_only_drive(cls.current_path_compiled):
+            cls.current_path = drives_path_name
         else:
-            cls.current_directory_path.pop()
-            cls.current_directory = cls.compile_list_into_path(cls.current_directory_path)
+            cls.current_path_compiled.pop()
+            cls.current_path = cls.convert_list_to_path(cls.current_path_compiled)
             
-        cls.navigated_paths.append(cls.current_directory)
+        cls.navigated_paths.append(cls.current_path)
         cls.navigated_paths_index = len(cls.navigated_paths)-1
 
     """
         * Directory Logic
     """
     @classmethod
-    @staticmethod
-    def update_current_directory(cls, new_dir: str):
-        Directory_Manager.current_directory = new_dir
-        Directory_Manager.current_directory_path = Directory_Manager.split_path_into_list(Directory_Manager.current_directory)
+    def update_current_path(cls, new_dir: str):
+        cls.current_directory = new_dir
+        cls.current_directory_path = cls.split_path_into_list(cls.current_directory)
 
     @classmethod
-    @staticmethod
-    def update_to_new_directory(cls, new_dir: str):
-        if Directory_Manager.navigated_paths_index < len(Directory_Manager.navigated_paths) and Directory_Manager.navigated_paths[Directory_Manager.navigated_paths_index] == Directory_Manager.current_directory:
-            Directory_Manager.navigated_paths = Directory_Manager.navigated_paths[:Directory_Manager.navigated_paths_index+1]
-        Directory_Manager.update_current_directory(new_dir)
+    def update_to_new_path(cls, new_dir: str):
+        if cls.navigated_paths_index < len(cls.navigated_paths) and cls.navigated_paths[cls.navigated_paths_index] == cls.current_directory:
+            cls.navigated_paths = cls.navigated_paths[:cls.navigated_paths_index+1]
+        cls.update_current_directory(new_dir)
 
         # conditional edge case where user could enter the same directory after the directory was added to navigated_paths (at the end) and press enter and it would add the directory, even though it already exists at the end, adding redundancy.
-        if Directory_Manager.navigated_paths[Directory_Manager.navigated_paths_index] != Directory_Manager.current_directory:
-            Directory_Manager.navigated_paths.append(Directory_Manager.current_directory)
-            Directory_Manager.navigated_paths_index = len(Directory_Manager.navigated_paths)-1
+        if cls.navigated_paths[cls.navigated_paths_index] != cls.current_directory:
+            cls.navigated_paths.append(cls.current_directory)
+            cls.navigated_paths_index = len(cls.navigated_paths)-1
     
-    @classmethod
+    # make it so that you can also try checking the str
     @staticmethod
+    def entry_is_folder(dir_data: Directory) -> bool:
+        return dir_data.extension == _directory_extension
+    
+    # make it so that you can also try checking the str
+    @staticmethod
+    def entry_is_drive(dir_data: Directory) -> bool:
+        return dir_data.extension == _drive_extension
+    
+    # make it so that you can also try checking the str
+    @staticmethod
+    def entry_is_file(dir_data: Directory) -> bool:
+        return dir_data.extension == _file_extension
+    
+    @staticmethod
+    def path_is_read_accessible(path):
+        # use this as ref lowk im not making this a method
+        return os.access(path, os.R_OK)
+    
+    # UNFINISHED
+    @classmethod
     def get_list_of_files(cls, directory):
         directory_list = None
 
@@ -212,9 +252,9 @@ class Directory_Manager:
 
             list_of_files.append(dir_point)
         return list_of_files
-    
+       
     # setup definitions for Directory_Manager variables if the methods above are required.
-    current_directory_path = split_path_into_list(current_directory)
+    current_path_compiled = split_path_into_list(current_directory)
 
 class Resource_File_Getter:
     """ Utility Class to allow files from resource folder to be utilized. """
@@ -233,20 +273,74 @@ class Resource_File_Getter:
         assert extension != "" or image_file_name.rfind(".") != -1, "class: Resource_File_Getter from get_dir_image_from_icons: NO FILE EXTENSION DETECTED FOR 'image_file_name'"
         return os.path.join(_resource_directory, "icons", image_file_name)
 
-# do this and put everything "else" in here
+class UI_Display_Utility:
+    """ Utility Class storing methods that utilize data to display information in a user-friendly manner. """
+    @staticmethod
+    def get_size_str(size):
+        _file_size_suffixes = [
+            "KB","MB","GB","TB","PB","EB","ZB","YB",
+        ]
+
+        # Returns the size of the file under a suffix if neccessary.
+        amt_after_multiple = size
+        for multiple in Directory_Point._file_size_suffixes:
+            amt_after_multiple = amt_after_multiple / Directory_Point._BYTES_MULTIPLE_CONST
+            if amt_after_multiple <= Directory_Point._BYTES_MULTIPLE_CONST:
+                return f"{amt_after_multiple:.2f} {multiple}"
+    
+    @staticmethod
+    def get_total_storage_data():
+        total, used, free = 0, 0, 0
+        for drive in get_list_of_drives_available():
+            storage_data = get_storage_data(drive)
+            total += storage_data.total
+            used += storage_data.used
+            free += storage_data.free
+        return (total, used, free)
+    
+    @staticmethod
+    def get_file_description(path, extension):
+        if extension == "Drive":
+            return f"{extension}\n\nA storage volume that contains files and folders."
+        elif extension == "Folder":
+            return f"{extension}\n\nA container used to organize files and subfolders in a filesystem."
+        try:
+            description = magic.from_file(path)
+            if description == "data":
+                description = "Unknown data file; No description can be provided."
+            return f"{extension}\n\n{description}"
+        except:
+            return f"{extension}\n\nUnknown file; No description can be provided."
+    
+    # RENAME METHOD
+    @staticmethod
+    def get_storage_display_data(path):
+        # returns value for SetValue in progress_bar_storage and a text for setText in display_storage
+        storage_data = None
+        s_format = ""
+
+        if path == drives_directory:
+            storage_data = get_total_storage_data()
+            s_format = f"Overall: {get_size_str(storage_data[2])} free of {get_size_str(storage_data[0])}"
+        else:
+            storage_data = get_storage_data(path)
+            s_format = f"{convert_to_path_str(Directory_Manager.current_directory_path[0]).strip('\\')}// {get_size_str(storage_data.free)} free of {get_size_str(storage_data.total)}"
+        
+        percentage = int((storage_data[1]/storage_data[0])*100)
+
+        return (percentage, s_format)
+
 class Utility:
-    pass
+    """
+    IMPLEMENTED VALIDS
+    """
+    @staticmethod
+    def get_open_file_explorer_command():
+        file_explorer_dir = os.path.join(os.getenv('WINDIR'), 'explorer.exe')
+        cur_dir = os.path.normpath(Directory_Manager.current_directory)
+        return [file_explorer_dir, cur_dir]
 
-# make it so that you can also try checking the str
-def directory_is_folder(dir_data: Directory) -> bool:
-    return dir_data.extension == _directory_extension
-# make it so that you can also try checking the str
-def directory_is_drive(dir_data: Directory) -> bool:
-    return dir_data.extension == _drive_extension
-# make it so that you can also try checking the str
-def directory_is_file(dir_data: Directory) -> bool:
-    return dir_data.extension == _file_extension
-
-def directory_is_read_accessible(path):
-    # use this as ref lowk im not making this a method
-    return os.access(path, os.R_OK)
+    def get_list_of_drives_available():
+        # (device, mountpoint, fstype, opts)
+        return [convert_to_path_str(partition.device) for partition in psutil.disk_partitions()]
+            
