@@ -46,15 +46,6 @@ class File_Explorer_Keys:
     TYPE = 2
     SIZE = 3
 
-def get_taskbar_height():
-    _height_screen_key = 3
-
-    primary_monitor = MonitorFromPoint((0,0))
-    monitor_info = GetMonitorInfo(primary_monitor)
-    actual_screen_area = monitor_info.get("Monitor")
-    available_screen_area = monitor_info.get("Work")
-    return actual_screen_area[_height_screen_key]-available_screen_area[_height_screen_key]
-
 class Main_Application(QMainWindow):
     app_ref = None
     window_at_top = False
@@ -380,6 +371,15 @@ class Main_Application(QMainWindow):
     def mouseReleaseEvent(self, event):
         if Main_Application.window_at_top:
             self.display_fullscreen_enabled()
+
+def get_taskbar_height():
+    _height_screen_key = 3
+
+    primary_monitor = MonitorFromPoint((0,0))
+    monitor_info = GetMonitorInfo(primary_monitor)
+    actual_screen_area = monitor_info.get("Monitor")
+    available_screen_area = monitor_info.get("Work")
+    return actual_screen_area[_height_screen_key]-available_screen_area[_height_screen_key]
 
 def start_application():
     app = QApplication([])
