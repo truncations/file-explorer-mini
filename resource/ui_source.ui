@@ -854,7 +854,7 @@ QPushButton:pressed {
             <number>0</number>
            </property>
            <item>
-            <widget class="QTableWidget" name="file_explorer">
+            <widget class="QTableView" name="file_explorer">
              <property name="font">
               <font>
                <family>Microsoft YaHei UI</family>
@@ -862,23 +862,23 @@ QPushButton:pressed {
               </font>
              </property>
              <property name="focusPolicy">
-              <enum>Qt::FocusPolicy::NoFocus</enum>
+              <enum>Qt::FocusPolicy::ClickFocus</enum>
              </property>
              <property name="styleSheet">
-              <string notr="true">QTableWidget {
+              <string notr="true">QTableView {
 	border: none;
 	border-bottom: 2px solid #1F5600;
 	border-left: 2px solid #1F5600;
 	gridline-color:#215E00;
 }
 
-QTableWidget::item:hover {
+QTableView::item:hover {
 	color: #F2F0EA;
 	background-color: #1F5600;
 	text-decoration: none;
 }
 
-QTableWidget::item:selected {
+QTableView::item:selected {
 	color: #F2F0EA;
 	background-color: #1F5600;
 	text-decoration: none;
@@ -965,6 +965,9 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
 	background: none;
 }</string>
              </property>
+             <property name="frameShape">
+              <enum>QFrame::Shape::NoFrame</enum>
+             </property>
              <property name="editTriggers">
               <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
              </property>
@@ -980,47 +983,6 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
              <property name="cornerButtonEnabled">
               <bool>false</bool>
              </property>
-             <property name="rowCount">
-              <number>0</number>
-             </property>
-             <property name="columnCount">
-              <number>4</number>
-             </property>
-             <attribute name="horizontalHeaderVisible">
-              <bool>true</bool>
-             </attribute>
-             <attribute name="horizontalHeaderHighlightSections">
-              <bool>false</bool>
-             </attribute>
-             <attribute name="horizontalHeaderShowSortIndicator" stdset="0">
-              <bool>false</bool>
-             </attribute>
-             <attribute name="verticalHeaderVisible">
-              <bool>false</bool>
-             </attribute>
-             <attribute name="verticalHeaderHighlightSections">
-              <bool>false</bool>
-             </attribute>
-             <column>
-              <property name="text">
-               <string>Name</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>Date Modified</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>Type</string>
-              </property>
-             </column>
-             <column>
-              <property name="text">
-               <string>Size</string>
-              </property>
-             </column>
             </widget>
            </item>
            <item>

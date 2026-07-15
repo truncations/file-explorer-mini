@@ -6,14 +6,17 @@ If there are any new UI elements that need to be added, it will be done in this 
 This script also manages the user expereince.
 
 Todo:
-    * sorting based on either name/date modified/type/size
+    * sorting based on type FIRST then name (only if folder)
+        + may implement multi sorting if "you wanted to"
     * right click implementation on files
+    * refactor this too it sucks
 """
 
 from PyQt6 import uic # allows to load ui
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
+    QTableView,
     QTableWidget,
     QTableWidgetItem,
     QHBoxLayout,
@@ -26,7 +29,7 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QFileIconProvider
 )
-from PyQt6.QtCore import Qt, QPoint, QFileInfo
+from PyQt6.QtCore import Qt, QPoint, QFileInfo, QSortFilterProxyModel, QAbstractTableModel, QModelIndex
 from PyQt6.QtGui import QIcon, QPixmap
 import sys
 import src.configuration as configuration
@@ -46,12 +49,104 @@ class File_Explorer_Keys:
     TYPE = 2
     SIZE = 3
 
+class File_Explorer_Table_Model(QAbstractTableModel):
+    def __init__(self, data: list[list] | None = None, parent = None):
+        super().__init__(parent)
+        self._data = data
+        self._headers = ["Name", "Date Modified", "Type", "Size"]
+
+    def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
+        if not parent.isValid():
+            return len(self._data) if self._data else 0
+        else:
+            return 0
+
+    def columnCount(self, parent: QModelIndex = QModelIndex()) -> int:
+        # is a constant that never changes
+        if not parent.isValid():
+            return 4
+        else:
+            return 0
+
+    def data(self, index: QModelIndex, role: int):
+        if not index.isValid():
+            return None
+        if index.row() >= len(self._data) or index.row() < 0:
+            return None
+        if role == Qt.ItemDataRole.DisplayRole or role == Qt.ItemDataRole.EditRole:
+            return self._data[index.row()][index.column()]
+        return None
+
+    def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> str:
+        if (role == Qt.ItemDataRole.DisplayRole or role == Qt.ItemDataRole.EditRole) and orientation == Qt.Orientation.Horizontal:
+            return self._headers[section]
+        
+    """
+    editable TableModel
+    """
+    def insertRows(self, position: int, amount: int = 1, index: QModelIndex = QModelIndex()):
+        self.beginInsertRows(QModelIndex(), position, position + amount - 1)
+
+        for row in range(0, amount):
+            self._data.insert(position + row, [QWidget(), "", "", ""])
+
+        self.endInsertRows()
+
+        return True
+    
+    def removeRows(self, position: int, amount: int = 1, index: QModelIndex = QModelIndex()):
+        self.beginRemoveRows(QModelIndex(), position, position + amount - 1)
+
+        del self._data[position:position + amount]
+
+        self.endRemoveRows()
+
+        return True
+    
+    def setData(self, index: QModelIndex, value, role: int = Qt.ItemDataRole.EditRole):
+        if not index.isValid() or role != Qt.ItemDataRole.EditRole:
+            return False
+        row = index.row()
+        if not (len(self._data) > row >= 0):
+            return False
+        
+        data_row = self._data[row]
+        data_row[index.column()] = value
+        self.dataChanged.emit(index, index, [Qt.ItemDataRole.EditRole.value])
+        return True
+    
+    def flags(self, index: QModelIndex):
+        if not index.isValid():
+            return Qt.ItemFlag.ItemIsEnabled
+        return Qt.ItemFlag(QAbstractTableModel.flags(self, index) | Qt.ItemFlag.ItemIsEditable)
+    
+    def add_entry(self, new_entry_data: list = [QWidget(), "", "", ""]):
+        row = self.rowCount()
+        self.beginInsertRows(QModelIndex, row, row)
+        self._data.append(new_entry_data)
+        self.endInsertRows()
+        self.layoutChanged.emit()
+    
+    def edit_entry(self, row: int, col: int, value):
+        index = self.index(row, col)
+        self.setData(index, value, Qt.ItemDataRole.EditRole)
+
+    def remove_entry(self, row: int):
+        if not self._data: return
+        self.removeRows(row)
+
+    def clear_all_entries(self):
+        if not self._data: return
+        self.removeRows(0, len(self._data))
+
 class Main_Application(QMainWindow):
     app_ref = None
     window_at_top = False
 
     def __init__(self, app_reference):
         super().__init__()
+
+        self._file_exp_table_model = File_Explorer_Table_Model()
 
         Main_Application.app_ref = app_reference
         self.load_ui()
@@ -84,8 +179,9 @@ class Main_Application(QMainWindow):
 
     def setup_file_explorer_table(self):
         # proper setup here
-        self.file_explorer.horizontalHeader().setFont(self.file_explorer.font())
+        self.file_explorer.setModel(self._file_exp_table_model)
 
+        self.file_explorer.horizontalHeader().setFont(self.file_explorer.font())
         self.file_explorer.setColumnWidth(File_Explorer_Keys.NAME, configuration.File_Explorer_Table_Config.NAME_COL_WIDTH)
         self.file_explorer.setColumnWidth(File_Explorer_Keys.DATE_MODIFIED, configuration.File_Explorer_Table_Config.DATE_MODIFIED_COL_WIDTH)
         self.file_explorer.setColumnWidth(File_Explorer_Keys.TYPE, configuration.File_Explorer_Table_Config.TYPE_COL_WIDTH)
@@ -115,8 +211,8 @@ class Main_Application(QMainWindow):
         self.button_refresh.clicked.connect(self.refresh_button_pressed)
         self.button_parent_directory.clicked.connect(self.up_parent_pressed)
 
-        self.file_explorer.cellClicked.connect(self.table_cell_clicked)
-        self.file_explorer.cellDoubleClicked.connect(self.table_cell_double_clicked)
+        self.file_explorer.clicked.connect(self.table_cell_clicked)
+        self.file_explorer.doubleClicked.connect(self.table_cell_double_clicked)
 
     #
     # ui functions
@@ -137,13 +233,18 @@ class Main_Application(QMainWindow):
         self.input_status_bar.setText("SETTINGS")
 
     def update_file_explorer(self):
-        self.file_explorer.clearContents()
-        self.file_explorer.setRowCount(0)
+        self._file_exp_table_model.clear_all_entries()
 
         files = file_explorer_manager.Path_Manager.get_list_of_entries_in_cur_path()
         row_count = 0
-        # TODO: add a multithreader so the files will load one at a time to prevent QT from freezing
+        # TODO: add a multithreader so the files will load one at a time to prevent QT from freezing using Queued Connections.
         for file in files:
+            self._file_exp_table_model.add_entry()
+            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.NAME, "")
+            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.DATE_MODIFIED, "")
+            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.TYPE, "")
+            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.SIZE, "")
+            """
             self.file_explorer.insertRow(row_count)
 
             self.file_explorer.setCellWidget(row_count, File_Explorer_Keys.NAME, self.get_name_and_icon_for_table(file))
@@ -151,6 +252,8 @@ class Main_Application(QMainWindow):
             self.file_explorer.setItem(row_count, File_Explorer_Keys.TYPE, QTableWidgetItem(file.extension.strip('.')))
             if not file_explorer_manager.Path_Manager.entry_is_folder(file):
                 self.file_explorer.setItem(row_count, File_Explorer_Keys.SIZE, QTableWidgetItem(file_explorer_manager.UI_Display_Utility.get_size_str(file.size)))
+            """
+
             
             row_count += 1
 
@@ -340,7 +443,6 @@ class Main_Application(QMainWindow):
             else:
                 self.file_explorer.showRow(index)
     
-    # todo: lets do this; if file then open with other logic, if folder then yk the drill
     def table_cell_double_clicked(self, row_cell_clicked):
         path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self.file_explorer.cellWidget(row_cell_clicked, File_Explorer_Keys.NAME).layout().itemAt(1).widget().text())
         self.try_open_given_directory(path_of_item)
@@ -356,7 +458,6 @@ class Main_Application(QMainWindow):
             file_explorer_manager.Path_Manager.update_to_new_path(directory)
             self.update_file_explorer()
         else:
-            # TODO: if the file is an actual file we'll try to open it.
             file_explorer_manager.Utility.open_file(directory)
 
     def search_bar_enter_pressed(self):
