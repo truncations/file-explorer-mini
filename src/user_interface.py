@@ -27,7 +27,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QStackedLayout,
     QProgressBar,
-    QFileIconProvider
+    QFileIconProvider,
 )
 from PyQt6.QtCore import Qt, QPoint, QFileInfo, QSortFilterProxyModel, QAbstractTableModel, QModelIndex
 from PyQt6.QtGui import QIcon, QPixmap
@@ -49,10 +49,13 @@ class File_Explorer_Keys:
     TYPE = 2
     SIZE = 3
 
+    DATA_ICON = 0
+    DATA_NAME = 1
+
 class File_Explorer_Table_Model(QAbstractTableModel):
     def __init__(self, data: list[list] | None = None, parent = None):
         super().__init__(parent)
-        self._data = data
+        self._data = data if data else []
         self._headers = ["Name", "Date Modified", "Type", "Size"]
 
     def rowCount(self, parent: QModelIndex = QModelIndex()) -> int:
@@ -73,6 +76,11 @@ class File_Explorer_Table_Model(QAbstractTableModel):
             return None
         if index.row() >= len(self._data) or index.row() < 0:
             return None
+        if index.column() == File_Explorer_Keys.NAME:
+            if role == Qt.ItemDataRole.DecorationRole:
+                return self._data[index.row()][index.column()][File_Explorer_Keys.DATA_ICON] # ICON
+            if role == Qt.ItemDataRole.EditRole or role == Qt.ItemDataRole.DisplayRole:
+                return self._data[index.row()][index.column()][File_Explorer_Keys.DATA_NAME] # NAME
         if role == Qt.ItemDataRole.DisplayRole or role == Qt.ItemDataRole.EditRole:
             return self._data[index.row()][index.column()]
         return None
@@ -88,7 +96,7 @@ class File_Explorer_Table_Model(QAbstractTableModel):
         self.beginInsertRows(QModelIndex(), position, position + amount - 1)
 
         for row in range(0, amount):
-            self._data.insert(position + row, [QWidget(), "", "", ""])
+            self._data.insert(position + row, [[0,1], "", "", ""])
 
         self.endInsertRows()
 
@@ -104,15 +112,24 @@ class File_Explorer_Table_Model(QAbstractTableModel):
         return True
     
     def setData(self, index: QModelIndex, value, role: int = Qt.ItemDataRole.EditRole):
-        if not index.isValid() or role != Qt.ItemDataRole.EditRole:
+        if not index.isValid():
             return False
         row = index.row()
         if not (len(self._data) > row >= 0):
             return False
         
         data_row = self._data[row]
-        data_row[index.column()] = value
-        self.dataChanged.emit(index, index, [Qt.ItemDataRole.EditRole.value])
+        if index.column() == File_Explorer_Keys.NAME:
+            if role == Qt.ItemDataRole.EditRole:
+                data_row[index.column()][File_Explorer_Keys.DATA_NAME] = value
+            elif role == Qt.ItemDataRole.DecorationRole:
+                data_row[index.column()][File_Explorer_Keys.DATA_ICON] = value
+            else:
+                return False
+        else:
+            data_row[index.column()] = value
+            self.dataChanged.emit(index, index, [role])
+
         return True
     
     def flags(self, index: QModelIndex):
@@ -120,20 +137,28 @@ class File_Explorer_Table_Model(QAbstractTableModel):
             return Qt.ItemFlag.ItemIsEnabled
         return Qt.ItemFlag(QAbstractTableModel.flags(self, index) | Qt.ItemFlag.ItemIsEditable)
     
-    def add_entry(self, new_entry_data: list = [QWidget(), "", "", ""]):
+    # remove the default parameter it doesnt work this method gets initialized before QApp does, it just does.
+    def add_entry(self, new_entry_data: list = []):
+        if not self._data: return
         row = self.rowCount()
-        self.beginInsertRows(QModelIndex, row, row)
+        self.insertRows(row)
         self._data.append(new_entry_data)
-        self.endInsertRows()
         self.layoutChanged.emit()
     
-    def edit_entry(self, row: int, col: int, value):
+    def edit_entry(self, row: int, col: int, value, role: int = Qt.ItemDataRole.EditRole):
+        if not self._data: return
         index = self.index(row, col)
-        self.setData(index, value, Qt.ItemDataRole.EditRole)
+        self.setData(index, value, role)
 
     def remove_entry(self, row: int):
         if not self._data: return
         self.removeRows(row)
+
+    def get_entry_data(self, row: int, col: int):
+        if col == File_Explorer_Keys.NAME:
+            return self._data[row][col][File_Explorer_Keys.DATA_NAME] 
+        else:
+            return self._data[row][col]
 
     def clear_all_entries(self):
         if not self._data: return
@@ -239,11 +264,16 @@ class Main_Application(QMainWindow):
         row_count = 0
         # TODO: add a multithreader so the files will load one at a time to prevent QT from freezing using Queued Connections.
         for file in files:
-            self._file_exp_table_model.add_entry()
-            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.NAME, "")
-            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.DATE_MODIFIED, "")
-            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.TYPE, "")
-            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.SIZE, "")
+            file_name, file_icon = self.get_name_and_icon_for_table(file)
+            index = self._file_exp_table_model.index(row_count, File_Explorer_Keys.NAME)
+
+            self._file_exp_table_model.insertRows(row_count)
+            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.NAME, file_name)
+            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.NAME, QIcon(file_icon), Qt.ItemDataRole.DecorationRole)
+            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.DATE_MODIFIED, file.get_date_modified_str())
+            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.TYPE, file.extension.strip('.'))
+            if not file_explorer_manager.Path_Manager.entry_is_folder(file):
+                self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.SIZE, file_explorer_manager.UI_Display_Utility.get_size_str(file.size))
             """
             self.file_explorer.insertRow(row_count)
 
@@ -272,32 +302,11 @@ class Main_Application(QMainWindow):
         #print(file_explorer_manager.Directory_Manager.navigated_paths, file_explorer_manager.Directory_Manager.navigated_paths_index)
 
     def get_name_and_icon_for_table(self, file: file_explorer_manager.Entry):
-        base_widget = QWidget()
-        base_layout = QHBoxLayout()
-
         icon_provider = QFileIconProvider()
         pixmap_data = icon_provider.icon(QFileInfo(file_explorer_manager.Path_Manager.get_abs_path(file.file_name))).pixmap(32,32)
         pixmap_data = pixmap_data if pixmap_data is not None else QPixmap(file_explorer_manager.Resource_File_Getter.get_path_to_img("default_no_file_icon.png"))
 
-        base_widget.setStyleSheet("QWidget { background: transparent; }")
-
-        file_icon_widget = QLabel("ENOUGH")
-        file_icon_widget.setPixmap(pixmap_data)
-        file_icon_widget.setScaledContents(True)
-        file_icon_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Ignored)
-        file_icon_widget.setFixedSize(20,20)
-
-        file_name_widget = QLabel(file.file_name)
-        file_name_widget.setSizePolicy(QSizePolicy.Policy.Maximum,QSizePolicy.Policy.Ignored)
-
-        base_layout.setContentsMargins(6,0,6,0)
-        base_layout.setSpacing(6)
-        base_layout.addWidget(file_icon_widget)
-        base_layout.addWidget(file_name_widget)
-        base_layout.addStretch(1)
-
-        base_widget.setLayout(base_layout)
-        return base_widget
+        return (file.file_name, pixmap_data)
     
     # helpers for fullscreening
     def display_fullscreen_enabled(self):
@@ -443,13 +452,13 @@ class Main_Application(QMainWindow):
             else:
                 self.file_explorer.showRow(index)
     
-    def table_cell_double_clicked(self, row_cell_clicked):
-        path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self.file_explorer.cellWidget(row_cell_clicked, File_Explorer_Keys.NAME).layout().itemAt(1).widget().text())
+    def table_cell_double_clicked(self, index: QModelIndex):
+        path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self._file_exp_table_model.get_entry_data(index.row(), File_Explorer_Keys.NAME))
         self.try_open_given_directory(path_of_item)
 
-    def table_cell_clicked(self, row_cell_clicked):
-        path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self.file_explorer.cellWidget(row_cell_clicked, File_Explorer_Keys.NAME).layout().itemAt(1).widget().text())
-        extension_of_item = self.file_explorer.item(row_cell_clicked, File_Explorer_Keys.TYPE).text()
+    def table_cell_clicked(self, index: QModelIndex):
+        path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self._file_exp_table_model.get_entry_data(index.row(), File_Explorer_Keys.NAME))
+        extension_of_item = self._file_exp_table_model.get_entry_data(index.row(), File_Explorer_Keys.TYPE)
         description = file_explorer_manager.UI_Display_Utility.get_file_description(path_of_item, extension_of_item)
         self.documentation.setText(description)
 
