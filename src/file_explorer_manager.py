@@ -70,7 +70,7 @@ class Path_Manager:
         current_path_compiled: Splits current_path into file_names by delimiter \\.
         navigated_paths
         navigated_paths_index: Index of current_path in navigated_paths (to make navigation like forwards/backwards functional)
-        entries_of_path: List of entries (files/folders) of a path.
+        entry_list_of_path: List of entries (files/folders) of a path.
     """
     current_path: str = _default_path
     """
@@ -85,7 +85,7 @@ class Path_Manager:
     navigated_paths: list[str] = [_default_path]
     navigated_paths_index: int = 0
 
-    entries_of_path: list[Entry] = []
+    entry_list_of_path: list[Entry] = []
 
     """
         * Property Handling
@@ -165,8 +165,9 @@ class Path_Manager:
             cls.current_path_compiled.pop()
             cls.update_current_path(cls.convert_list_to_path(cls.current_path_compiled))
             
-        cls.navigated_paths.append(cls.current_path)
-        cls.navigated_paths_index = len(cls.navigated_paths)-1
+        if cls.navigated_paths[cls.navigated_paths_index] != cls.current_path:
+            cls.navigated_paths.append(cls.current_path)
+            cls.navigated_paths_index = len(cls.navigated_paths)-1
 
     @classmethod
     def update_to_new_path(cls, new_path: str) -> None:
@@ -206,17 +207,17 @@ class Path_Manager:
 
     @classmethod
     def get_list_of_entries(cls, path: str) -> list[Entry]:
-        directory_list = None
+        obj_list_of_path = None
 
         if path == drives_path_name:
-            directory_list = Utility.get_paths_of_drives_available()
+            obj_list_of_path = Utility.get_paths_of_drives_available()
         elif not os.path.exists(path) or not os.path.isdir(path):
-            directory_list = []
+            obj_list_of_path = []
         else:
-            directory_list = os.listdir(path)
+            obj_list_of_path = os.listdir(path)
 
         list_of_files = []
-        for cur_file_name in directory_list:
+        for cur_file_name in obj_list_of_path:
             full_path_to_file = os.path.join(path, cur_file_name)
             new_entry = Entry()
 
@@ -243,8 +244,8 @@ class Path_Manager:
 
             list_of_files.append(new_entry)
 
-        cls.entries_of_path = list_of_files[:]
-        return cls.entries_of_path
+        cls.entry_list_of_path = list_of_files[:]
+        return cls.entry_list_of_path
 
 class Resource_File_Getter:
     """ Utility Class to allow files from resource folder to be utilized. """

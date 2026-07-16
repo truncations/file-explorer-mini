@@ -26,10 +26,11 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QVBoxLayout,
     QStackedLayout,
+    QPushButton,
     QProgressBar,
     QFileIconProvider,
 )
-from PyQt6.QtCore import Qt, QPoint, QFileInfo, QSortFilterProxyModel, QAbstractTableModel, QModelIndex
+from PyQt6.QtCore import Qt, QPoint, QFileInfo, QSortFilterProxyModel, QAbstractTableModel, QModelIndex, QEvent
 from PyQt6.QtGui import QIcon, QPixmap
 import sys
 import src.configuration as configuration
@@ -39,6 +40,11 @@ from subprocess import run as subprocess_run
 from win32api import GetMonitorInfo, MonitorFromPoint
 
 app = QApplication([])
+
+class File_Navigation_Commands:
+    FORWARD = file_explorer_manager.Path_Manager.navigate_forwards
+    BACKWARD = file_explorer_manager.Path_Manager.navigate_backwards
+    UP = file_explorer_manager.Path_Manager.navigate_upwards
 
 class Special_Bounds_Keys:
     TOP_OF_SCREEN = 1
@@ -53,6 +59,11 @@ class File_Explorer_Keys:
 
     DATA_ICON = 0
     DATA_NAME = 1
+
+class File_Explorer_Pages:
+    EXPLORER = 0
+    MEDIA = 1
+    SETTINGS = 2
 
 class File_Explorer_Table_Model(QAbstractTableModel):
     def __init__(self, data: list[list] | None = None, parent = None):
@@ -177,7 +188,7 @@ class Main_Application(QMainWindow):
         self.design_layouts()
         self.setup_main_window_functions()
         self.setup_file_explorer_table()
-        self.show_explorer_page()
+        self.show_page(File_Explorer_Pages.EXPLORER) # show explorer page for default
         self.connect_signals_and_slots()
 
     """
@@ -233,21 +244,20 @@ class Main_Application(QMainWindow):
         self.button_minimize_window.clicked.connect(self.minimize_window)
         self.button_fullscreen_window.clicked.connect(self.fullscreen_button_clicked)
 
-        self.button_backwards.clicked.connect(self.backwards_button_clicked)
-        self.button_forwards.clicked.connect(self.forwards_button_clicked)
+        self.button_forwards.clicked.connect(lambda: self.file_navigation_buttons_clicked(File_Navigation_Commands.FORWARD))
+        self.button_backwards.clicked.connect(lambda: self.file_navigation_buttons_clicked(File_Navigation_Commands.BACKWARD))
+        self.button_parent_directory.clicked.connect(lambda: self.file_navigation_buttons_clicked(File_Navigation_Commands.UP))
+        self.button_refresh.clicked.connect(self.update_file_explorer)
 
-        self.button_tab_backwards_compatibility.clicked.connect(self.open_file_explorer)
-        self.button_tab_explorer.clicked.connect(self.explorer_tab_button_clicked)
-        self.button_tab_media.clicked.connect(self.media_tab_button_clicked)
-        self.button_tab_settings.clicked.connect(self.settings_tab_button_clicked)
+        self.button_tab_backwards_compatibility.clicked.connect(self.open_actual_file_explorer)
+        self.button_tab_explorer.clicked.connect(lambda: self.navigation_tabs_clicked("explorer"))
+        self.button_tab_media.clicked.connect(lambda: self.navigation_tabs_clicked("media"))
+        self.button_tab_settings.clicked.connect(lambda: self.navigation_tabs_clicked("settings"))
 
         self.title_row.mouseMoveEvent = self.move_window_event
         self.input_status_bar.returnPressed.connect(self.status_bar_enter_pressed)
-        self.input_search_bar.returnPressed.connect(self.search_bar_enter_pressed)
-        self.search_button.clicked.connect(self.search_button_clicked)
-
-        self.button_refresh.clicked.connect(self.refresh_button_pressed)
-        self.button_parent_directory.clicked.connect(self.up_parent_pressed)
+        self.input_search_bar.returnPressed.connect(self.search_signal_triggered)
+        self.search_button.clicked.connect(self.search_signal_triggered)
 
         self.file_explorer.clicked.connect(self.table_cell_clicked)
         self.file_explorer.doubleClicked.connect(self.table_cell_double_clicked)
@@ -256,20 +266,20 @@ class Main_Application(QMainWindow):
     UI updating functions
         * Updates visual elements
     """
-    def show_explorer_page(self) -> None:
-        self.main_content.setCurrentIndex(0)
-        self.input_status_bar.setReadOnly(False)
-        self.update_file_explorer()
+    def show_page(self, main_content_index: int):
+        pages = [
+            {"read_only": False, "function_to_activate": self.update_file_explorer}, # explorer
+            {"read_only": True, "function_to_activate": self.input_status_bar.setText, "parameter": file_explorer_manager.Path_Manager.current_path}, # media
+            {"read_only": True, "function_to_activate": self.input_status_bar.setText, "parameter": "Settings"}, # settings
+        ]
+        page_data = pages[main_content_index]
 
-    def show_media_page(self) -> None:
-        self.main_content.setCurrentIndex(1)
-        self.input_status_bar.setReadOnly(True)
-        self.input_status_bar.setText(file_explorer_manager.Path_Manager.current_path)
-
-    def show_settings_page(self) -> None:
-        self.main_content.setCurrentIndex(2)
-        self.input_status_bar.setReadOnly(True)
-        self.input_status_bar.setText("SETTINGS")
+        self.main_content.setCurrentIndex(main_content_index)
+        self.input_status_bar.setReadOnly(page_data["read_only"])
+        if page_data.get("parameter", None) is None:
+            page_data["function_to_activate"]()
+        else:
+            page_data["function_to_activate"](page_data["parameter"])
 
     def update_file_explorer(self) -> None:
         self._file_exp_table_model.clear_all_entries()
@@ -322,6 +332,14 @@ class Main_Application(QMainWindow):
 
         return (file.file_name, pixmap_data)
     
+    def set_visible_nav_buttons(self, wish_visible: bool):
+        self.button_backwards.setVisible(wish_visible)
+        self.button_forwards.setVisible(wish_visible)
+        self.button_parent_directory.setVisible(wish_visible)
+        self.button_refresh.setVisible(wish_visible)
+        self.input_search_bar.setVisible(wish_visible)
+        self.search_button.setVisible(wish_visible)
+
     # helpers for fullscreening
     def display_fullscreen_enabled(self):
         self.setWindowState(Qt.WindowState.WindowMaximized)
@@ -331,11 +349,11 @@ class Main_Application(QMainWindow):
         self.setWindowState(Qt.WindowState.WindowActive)
         self.button_fullscreen_window.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("fullscreen.png")))
 
-    def check_for_special_bounds(self, pos : QPoint):
+    def check_for_window_pos_bounds(self, pos : QPoint):
         screen_area_geometry = QApplication.primaryScreen().geometry()
         screen_area_geometry = (screen_area_geometry.width(), screen_area_geometry.height())
 
-        taskbar_height = self.get_taskbar_height()
+        taskbar_height = self.get_monitor_taskbar_height()
         # is window at top of screen?
         if pos.y() <= 0:
             return Special_Bounds_Keys.TOP_OF_SCREEN
@@ -348,14 +366,14 @@ class Main_Application(QMainWindow):
 
     # utility function
     @staticmethod
-    def get_taskbar_height():
-            _height_screen_key = 3
+    def get_monitor_taskbar_height() -> int:
+        _height_screen_key = 3
 
-            primary_monitor = MonitorFromPoint((0,0))
-            monitor_info = GetMonitorInfo(primary_monitor)
-            actual_screen_area = monitor_info.get("Monitor")
-            available_screen_area = monitor_info.get("Work")
-            return actual_screen_area[_height_screen_key]-available_screen_area[_height_screen_key]
+        primary_monitor = MonitorFromPoint((0,0))
+        monitor_info = GetMonitorInfo(primary_monitor)
+        actual_screen_area = monitor_info.get("Monitor")
+        available_screen_area = monitor_info.get("Work")
+        return actual_screen_area[_height_screen_key]-available_screen_area[_height_screen_key]
     """
     Slots for signals provided by QWidget() objects
     """
@@ -377,80 +395,86 @@ class Main_Application(QMainWindow):
         input_text = self.input_status_bar.text()
         if input_text == "":
             input_text=file_explorer_manager._default_path
-        input_text = file_explorer_manager.Path_Manager.convert_str_to_path(input_text)
-        # handle doing
-        self.try_open_given_directory(input_text)
-
-    def refresh_button_pressed(self):
-        self.update_file_explorer()
-
-    def up_parent_pressed(self):
-        file_explorer_manager.Path_Manager.navigate_upwards()
-        self.update_file_explorer()
-
-    def explorer_tab_button_clicked(self):
-        if not self.button_tab_explorer.isChecked():
-            self.button_tab_explorer.setChecked(True)
+        if input_text == "Drives":
+            file_explorer_manager.Path_Manager.update_to_new_path(file_explorer_manager.drives_path_name)
+            self.update_file_explorer()
         else:
-            self.show_explorer_page()
-            self.button_tab_media.setChecked(False)
-            self.button_tab_settings.setChecked(False)
+            input_text = file_explorer_manager.Path_Manager.convert_str_to_path(input_text)
+            self.open_entry(input_text)
 
-            self.button_backwards.setVisible(True)
-            self.button_forwards.setVisible(True)
-            self.button_parent_directory.setVisible(True)
-            self.button_refresh.setVisible(True)
-            self.input_search_bar.setVisible(True)
-            self.search_button.setVisible(True)
+    def navigation_tabs_clicked(self, tab_button_pressed_name: str):
+        tab_buttons = {
+            "explorer": {"button": self.button_tab_explorer, "main_content_index": File_Explorer_Pages.EXPLORER, "set_visible_nav_buttons": True},
+            "media": {"button": self.button_tab_media, "main_content_index": File_Explorer_Pages.MEDIA, "set_visible_nav_buttons": False},
+            "settings": {"button": self.button_tab_settings, "main_content_index": File_Explorer_Pages.SETTINGS, "set_visible_nav_buttons": False},
+        }
+        tab_button_pressed_data = tab_buttons[tab_button_pressed_name]
+        tab_button_pressed: QPushButton = tab_button_pressed_data["button"]
 
-    def media_tab_button_clicked(self):
-        if not self.button_tab_media.isChecked():
-            self.button_tab_media.setChecked(True)
-        else:
-            self.show_media_page()
-            self.button_tab_explorer.setChecked(False)
-            self.button_tab_settings.setChecked(False)
+        self.button_tab_explorer.setChecked(False)
+        self.button_tab_media.setChecked(False)
+        self.button_tab_settings.setChecked(False)
+        tab_button_pressed.setChecked(True)
 
-            self.button_backwards.setVisible(False)
-            self.button_forwards.setVisible(False)
-            self.button_parent_directory.setVisible(False)
-            self.button_refresh.setVisible(False)
-            self.input_search_bar.setVisible(False)
-            self.search_button.setVisible(False)
+        self.show_page(tab_button_pressed_data["main_content_index"])
+        self.set_visible_nav_buttons(tab_button_pressed_data["set_visible_nav_buttons"])
 
-    def settings_tab_button_clicked(self):
-        if not self.button_tab_settings.isChecked():
-            self.button_tab_settings.setChecked(True)
-        else:
-            self.show_settings_page()
-            self.button_tab_media.setChecked(False)
-            self.button_tab_explorer.setChecked(False)
-
-            self.button_backwards.setVisible(False)
-            self.button_forwards.setVisible(False)
-            self.button_parent_directory.setVisible(False)
-            self.button_refresh.setVisible(False)
-            self.input_search_bar.setVisible(False)
-            self.search_button.setVisible(False)
+        # just in case for faster trashing
+        tab_buttons.clear()
     
-    def backwards_button_clicked(self):
-        if file_explorer_manager.Path_Manager.can_navigate_backwards():
-            file_explorer_manager.Path_Manager.navigate_backwards()
-            self.update_file_explorer()
+    def file_navigation_buttons_clicked(self, navigation_command):
+        navigation_command()
+        self.update_file_explorer()
 
-    def forwards_button_clicked(self):
-        if file_explorer_manager.Path_Manager.can_navigate_forwards():
-            file_explorer_manager.Path_Manager.navigate_forwards()
-            self.update_file_explorer()
+    def open_actual_file_explorer(self):
+        subprocess_run(file_explorer_manager.Utility.get_open_file_explorer_command())
 
-    def move_window_event(self, event):
+    def open_entry(self, directory: str):
+        # note: all drives like C:\, A:\ are folders technically
+        if file_explorer_manager.Path_Manager.path_is_folder(directory):
+            file_explorer_manager.Path_Manager.update_to_new_path(directory)
+            self.update_file_explorer()
+        else:
+            file_explorer_manager.Utility.open_file(directory)
+
+    def table_cell_double_clicked(self, index: QModelIndex):
+        path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self._file_exp_table_model.get_entry_data(index.row(), File_Explorer_Keys.NAME))
+        self.open_entry(path_of_item)
+
+    def table_cell_clicked(self, index: QModelIndex):
+        path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self._file_exp_table_model.get_entry_data(index.row(), File_Explorer_Keys.NAME))
+        extension_of_item = self._file_exp_table_model.get_entry_data(index.row(), File_Explorer_Keys.TYPE)
+        description = file_explorer_manager.UI_Display_Utility.get_file_description(path_of_item, extension_of_item)
+        self.documentation.setText(description)
+
+    def search_in_directory(self):
+        """
+        Uses a filtering basic substring algorithm to determine what should be searched in given path.
+        """
+        search_query = self.input_search_bar.text().lower()
+
+        for row in range(self._file_exp_table_model.rowCount()):
+            cur_file_name = self._file_exp_table_model.get_entry_data(row, File_Explorer_Keys.NAME)
+            if search_query not in cur_file_name:
+                self.file_explorer.hideRow(row)
+            else:
+                self.file_explorer.showRow(row)
+    
+    def search_signal_triggered(self):
+        self.search_in_directory()
+
+    """
+    Subclassed Events
+        * Events/functions provided by QMainApplication that have been overridden.
+    """
+    def move_window_event(self, event: QEvent):
         if self.isMaximized():
             self.display_fullscreen_unenabled()
 
         if event.buttons() == Qt.MouseButton.LeftButton:
             new_position : QPoint = self.pos() + event.globalPosition().toPoint() - self.click_position
             # ensure that the window is always apparent, even when near the taskbar, as well as if the window hits the top, it will auto fullscreen.
-            special_bounds_key = self.check_for_special_bounds(new_position)
+            special_bounds_key = self.check_for_window_pos_bounds(new_position)
             self._is_window_at_top = False
 
             if special_bounds_key == Special_Bounds_Keys.TOP_OF_SCREEN:
@@ -462,52 +486,12 @@ class Main_Application(QMainWindow):
             self.click_position = event.globalPosition().toPoint()
             event.accept()
 
-    def open_file_explorer(self):
-        subprocess_run(file_explorer_manager.Utility.get_open_file_explorer_command())
-
-    def search_in_directory(self):
-        search_query = self.input_search_bar.text().lower()
-
-        for index in range(self.file_explorer.rowCount()):
-            if search_query not in self.file_explorer.cellWidget(index, File_Explorer_Keys.NAME).layout().itemAt(1).widget().text().lower():
-                self.file_explorer.hideRow(index)
-            else:
-                self.file_explorer.showRow(index)
-    
-    def table_cell_double_clicked(self, index: QModelIndex):
-        path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self._file_exp_table_model.get_entry_data(index.row(), File_Explorer_Keys.NAME))
-        self.try_open_given_directory(path_of_item)
-
-    def table_cell_clicked(self, index: QModelIndex):
-        path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self._file_exp_table_model.get_entry_data(index.row(), File_Explorer_Keys.NAME))
-        extension_of_item = self._file_exp_table_model.get_entry_data(index.row(), File_Explorer_Keys.TYPE)
-        description = file_explorer_manager.UI_Display_Utility.get_file_description(path_of_item, extension_of_item)
-        self.documentation.setText(description)
-
-    def try_open_given_directory(self, directory):
-        if file_explorer_manager.Path_Manager.path_is_folder(directory):
-            file_explorer_manager.Path_Manager.update_to_new_path(directory)
-            self.update_file_explorer()
-        else:
-            file_explorer_manager.Utility.open_file(directory)
-
-    def search_bar_enter_pressed(self):
-        self.search_in_directory()
-    
-    def search_button_clicked(self):
-        self.search_in_directory()
-
-    """
-    Subclassed Events
-        * Events/functions provided by QMainApplication that have been overridden.
-    """
-    def mousePressEvent(self, event):
+    def mousePressEvent(self, event: QEvent):
         self.click_position = event.globalPosition().toPoint()
 
-    def mouseReleaseEvent(self, event):
+    def mouseReleaseEvent(self, event: QEvent):
         if self._is_window_at_top:
             self.display_fullscreen_enabled()
-
 
 def start_application():
     # define all QT variables here
