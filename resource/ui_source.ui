@@ -818,10 +818,142 @@ QPushButton:pressed {
           <string notr="true">border-bottom: 2px solid #1F5600;</string>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>1</number>
          </property>
          <widget class="QWidget" name="explorer_nav_page"/>
-         <widget class="QWidget" name="media_nav_page"/>
+         <widget class="QWidget" name="media_nav_page">
+          <property name="layoutDirection">
+           <enum>Qt::LayoutDirection::LeftToRight</enum>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_4">
+           <property name="spacing">
+            <number>0</number>
+           </property>
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QListWidget" name="media_entry_list">
+             <property name="styleSheet">
+              <string notr="true">QListWidget {
+	border: none;
+	outline: none;
+	border-bottom: 2px solid #1F5600;
+	border-left: 2px solid #1F5600;
+	gridline-color:#215E00;
+}
+
+QListWidget::item:hover {
+	color: #F2F0EA;
+	background-color: #1F5600;
+	text-decoration: none;
+}
+
+QListWidget::item:selected {
+	color: #F2F0EA;
+	background-color: #1F5600;
+	text-decoration: none;
+}
+
+QHeaderView::section {
+	background-color: #215E00;
+	border-style: none;
+	border-right: 2px solid #1F5600;
+	border-bottom: 2px solid #1F5600;
+}
+
+QHeaderView::section:hover {
+	background-color:  #1F5600;
+	color: #F2F0EA;
+}
+
+
+QScrollBar:horizontal {
+    background: #215400;
+    height: 8px;
+    margin: 0px 20px;
+	color: #F2F0EA;
+	border-bottom: none;
+}
+
+QScrollBar::handle:horizontal {
+    background: #256600;
+    min-width: 10px;
+}
+
+QScrollBar::add-line:horizontal {
+	background-color: #1C4C00;
+    width: 20px;
+    subcontrol-position: right;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::sub-line:horizontal {
+	background-color: #1C4C00;
+    width: 20px;
+    subcontrol-position: left;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::up-arrow:horizontal, QScrollBar::down-arrow:horizontal {
+	background: #215400;
+}
+
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+	background: #215400;
+}
+
+QScrollBar:vertical {
+    background: #215400;
+    width: 8px;
+    margin: 20px 0px;
+	color: #F2F0EA;
+    border-right: none;
+}
+
+QScrollBar::handle:vertical {
+    background: #256600;
+    min-height: 10px;
+}
+
+QScrollBar::add-line:vertical {
+	background-color: #1C4C00;
+    height: 20px;
+    subcontrol-position: bottom;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::sub-line:vertical {
+	background-color: #1C4C00;
+    height: 20px;
+    subcontrol-position: top;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+	background: none;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+	background: none;
+}</string>
+             </property>
+             <property name="sortingEnabled">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
          <widget class="QWidget" name="settings_nav_page"/>
         </widget>
        </item>
@@ -903,6 +1035,7 @@ QScrollBar:horizontal {
     height: 15px;
     margin: 0px 20px;
 	color: #F2F0EA;
+	border-bottom: none;
 }
 
 QScrollBar::handle:horizontal {
@@ -937,6 +1070,7 @@ QScrollBar:vertical {
     width: 15px;
     margin: 20px 0px;
 	color: #F2F0EA;
+	border-right: none;
 }
 
 QScrollBar::handle:vertical {
@@ -1412,8 +1546,8 @@ QLabel {
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>243</width>
-                <height>225</height>
+                <width>671</width>
+                <height>498</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -1517,8 +1651,8 @@ QLabel {
                       <rect>
                        <x>0</x>
                        <y>0</y>
-                       <width>100</width>
-                       <height>30</height>
+                       <width>671</width>
+                       <height>183</height>
                       </rect>
                      </property>
                      <property name="styleSheet">

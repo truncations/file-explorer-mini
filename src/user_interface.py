@@ -6,7 +6,7 @@ If there are any new UI elements that need to be added, it will be done in this 
 This script also manages the user expereince.
 
 Todo:
-    * implement multi sorting if "you wanted to"
+    * Implement alternative sorting methods when clicking on any header cell.
     * right click implementation on files
 """
 
@@ -27,8 +27,12 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QProgressBar,
     QFileIconProvider,
+    QListWidget,
+    QListWidgetItem
 )
 from PyQt6.QtCore import Qt, QPoint, QFileInfo, QSortFilterProxyModel, QAbstractTableModel, QModelIndex, QEvent, pyqtSignal, pyqtSlot, QRunnable, QThreadPool
+from PyQt6.QtMultimedia import QMediaPlayer
+from PyQt6.QtMultimediaWidgets import QVideoWidget
 from PyQt6.QtGui import QIcon, QPixmap
 import sys
 import src.configuration as configuration
@@ -180,6 +184,8 @@ class File_Explorer_Proxy_Model(QSortFilterProxyModel):
         super().__init__()
 
     """OVERRIDE SORTING BEHAVIOR"""
+    # TODO: figured out that there's a default column that the proxy model sorts by which in this case is NAME conveniently so
+    # if you do test other header cells SORTING IS FUNCTIONAL but does not behave the way it should be expected, will need to consider that
     def lessThan(self, left: QModelIndex, right: QModelIndex) -> bool:
         """Currently assumes Folder sort then Name sort (we'll add more later)
         
@@ -222,6 +228,8 @@ class File_Exp_Worker(QRunnable):
             self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.SIZE, file_explorer_manager.UI_Display_Utility.get_size_str(file.size))
         """
         file_name, file_icon = self.main_app.get_name_and_icon_for_table(file)
+        if file.is_media_file:
+            self.main_app._signal_add_to_media_list.emit(file)
         size = not file_explorer_manager.Path_Manager.entry_is_folder(file) and file_explorer_manager.UI_Display_Utility.get_size_str(file.size) or ""
         return [[file_icon, file_name], file.get_date_modified_str(), file.extension.strip('.'), size]
 
@@ -239,6 +247,7 @@ class File_Exp_Worker(QRunnable):
 
 class Main_Application(QMainWindow):
     _signal_add_to_file_explorer: pyqtSignal = pyqtSignal(list)
+    _signal_add_to_media_list: pyqtSignal = pyqtSignal(file_explorer_manager.Entry)
 
     def __init__(self):
         super().__init__()
@@ -255,6 +264,7 @@ class Main_Application(QMainWindow):
         self.setup_file_explorer_table()
         self.connect_signals_and_slots()
         self.show_page(File_Explorer_Pages.EXPLORER) # show explorer page for default
+        self.update_file_explorer()
 
     """
     Main Application setup functions (ran with __init__)
@@ -330,6 +340,7 @@ class Main_Application(QMainWindow):
         self.file_explorer.doubleClicked.connect(self.table_cell_double_clicked)
 
         self._signal_add_to_file_explorer.connect(self._add_to_file_explorer, Qt.ConnectionType.QueuedConnection)
+        self._signal_add_to_media_list.connect(self._add_to_media_list, Qt.ConnectionType.QueuedConnection)
 
     """
     UI updating functions
@@ -337,20 +348,25 @@ class Main_Application(QMainWindow):
     """
     def show_page(self, main_content_index: int):
         pages = [
-            {"read_only": False, "function_to_activate": self.update_file_explorer}, # explorer
+            {"read_only": False}, # explorer
             {"read_only": True, "function_to_activate": self.input_status_bar.setText, "parameter": file_explorer_manager.Path_Manager.current_path}, # media
             {"read_only": True, "function_to_activate": self.input_status_bar.setText, "parameter": "Settings"}, # settings
         ]
         page_data = pages[main_content_index]
 
         self.main_content.setCurrentIndex(main_content_index)
+        self.navigation_section.setCurrentIndex(main_content_index)
+        
         self.input_status_bar.setReadOnly(page_data["read_only"])
+        if page_data.get("function_to_activate", None) is None:
+            return
         if page_data.get("parameter", None) is None:
             page_data["function_to_activate"]()
         else:
             page_data["function_to_activate"](page_data["parameter"])
 
     def update_file_explorer(self) -> None:
+        self.media_entry_list.clear()
         self._file_exp_table_model.clear_all_entries()
 
         file_explorer_worker = File_Exp_Worker(self)
@@ -467,6 +483,7 @@ class Main_Application(QMainWindow):
         tab_button_pressed.setChecked(True)
 
         self.show_page(tab_button_pressed_data["main_content_index"])
+        QStackedLayout.setCurrentIndex
         self.set_visible_nav_buttons(tab_button_pressed_data["set_visible_nav_buttons"])
 
         # just in case for faster trashing
@@ -519,7 +536,14 @@ class Main_Application(QMainWindow):
     def _add_to_file_explorer(self, buffered_entries: list[list]):
         if len(buffered_entries) > 0:
             self._file_exp_table_model.add_multi_entries(buffered_entries)
-        
+    
+    # TODO: make a media icon for images/pictures :D
+    @pyqtSlot(file_explorer_manager.Entry)
+    def _add_to_media_list(self, entry: file_explorer_manager.Entry):
+        new_item = QListWidgetItem()
+        new_item.setText(entry.file_name)
+        self.media_entry_list.addItem(new_item)
+
     """
     Subclassed Events
         * Events/functions provided by QMainApplication that have been overridden.

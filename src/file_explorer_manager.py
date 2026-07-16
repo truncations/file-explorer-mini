@@ -13,8 +13,11 @@ import os
 import datetime
 import src.configuration
 import shutil
+import mimetypes
 import psutil
 import magic
+
+mimetypes.init()
 
 # used for project handling
 _work_path: str = os.path.dirname(__file__)[:-len("src")]
@@ -51,6 +54,7 @@ class Entry:
     path: str = ""
     file_name: str = ""
     extension: str = ""
+    is_media_file: bool = False
     date_modified: float = 0.0
     size: int = -1
 
@@ -194,6 +198,13 @@ class Path_Manager:
         return entry_data.extension == _file_extension
     
     @staticmethod
+    def path_is_media(full_path: str) -> bool:
+        guess = mimetypes.guess_type(full_path)[0]
+        if guess is None: return False
+        guess = guess.split('/')[0]
+        return guess in ['audio', 'video', 'image']
+        
+    @staticmethod
     def path_is_folder(path: str) -> bool:
         return os.path.isdir(path)
     
@@ -241,6 +252,9 @@ class Path_Manager:
                 except:
                     continue
                 new_entry.extension = _directory_extension
+                
+            if cls.path_is_media(full_path_to_file):
+                new_entry.is_media_file = True
 
             new_entry.file_name = cur_file_name
             new_entry.date_modified = file_modified_time
