@@ -38,6 +38,8 @@ import src.backend as backend
 from subprocess import run as subprocess_run
 from win32api import GetMonitorInfo, MonitorFromPoint
 
+app = QApplication([])
+
 class Special_Bounds_Keys:
     TOP_OF_SCREEN = 1
     BOTTOM_OF_SCREEN = -1
@@ -165,45 +167,55 @@ class File_Explorer_Table_Model(QAbstractTableModel):
         self.removeRows(0, len(self._data))
 
 class Main_Application(QMainWindow):
-    app_ref = None
-    window_at_top = False
-
-    def __init__(self, app_reference):
+    def __init__(self):
         super().__init__()
 
-        self._file_exp_table_model = File_Explorer_Table_Model()
+        self._file_exp_table_model: QAbstractTableModel = File_Explorer_Table_Model()
+        self._is_window_at_top: bool = False
 
-        Main_Application.app_ref = app_reference
         self.load_ui()
         self.design_layouts()
-
         self.setup_main_window_functions()
         self.setup_file_explorer_table()
-
         self.show_explorer_page()
+        self.connect_signals_and_slots()
 
-        self.connect_events()
+    """
+    Main Application setup functions (ran with __init__)
+    """
+    def load_ui(self) -> None:
+        """
+        Loads user interface file into QMainWindow.
+        """
+        uic.load_ui.loadUi(file_explorer_manager.Resource_File_Getter.get_dir_ui_file(), self)
 
-    def design_layouts(self):
-        # setup for storage display on status bar
+    def design_layouts(self) -> None:
+        """
+        Layouts that need to be created/modified; set up for the application will be done here.
+        """
+        # Setup for storage display on status bar
         QStackedLayout_bar_storage = QStackedLayout()
         QStackedLayout_bar_storage.setStackingMode(QStackedLayout.StackingMode.StackAll)
         QStackedLayout_bar_storage.addWidget(self.display_storage)
         QStackedLayout_bar_storage.addWidget(self.progress_bar_storage)
-        self.display_storage.raise_()
+
+        #self.display_storage.raise_()
         self.display_storage.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter)
         self.bar_storage.setLayout(QStackedLayout_bar_storage)
 
-    #
-    # ui setup functions to ensure application runs as expected
-    #
-    def setup_main_window_functions(self):
+    def setup_main_window_functions(self) -> None:
+        """
+        Disable some Windows default functionality. (Applied when running any application of any sort.)
+        """
         # minimize, fullscreen, quit, move window.
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
 
-    def setup_file_explorer_table(self):
-        # proper setup here
+    def setup_file_explorer_table(self) -> None:
+        """
+        Setup the file explorer table (for visuals) displayed in the explorer page of the application.
+            * Establishes a M/V architecture with file_explorer as viewer (QTableView) and _file_exp_table_model as model.
+        """
         self.file_explorer.setModel(self._file_exp_table_model)
 
         self.file_explorer.horizontalHeader().setFont(self.file_explorer.font())
@@ -212,10 +224,11 @@ class Main_Application(QMainWindow):
         self.file_explorer.setColumnWidth(File_Explorer_Keys.TYPE, configuration.File_Explorer_Table_Config.TYPE_COL_WIDTH)
         self.file_explorer.setColumnWidth(File_Explorer_Keys.SIZE, configuration.File_Explorer_Table_Config.SIZE_COL_WIDTH)
 
-    def load_ui(self):
-        uic.load_ui.loadUi(file_explorer_manager.Resource_File_Getter.get_dir_ui_file(), self)
-
-    def connect_events(self):
+    def connect_signals_and_slots(self) -> None:
+        """
+        Connects all QT Signals and Slots;
+            * Provided that they are events that are NOT derived from QMainWindow.
+        """
         self.button_close_window.clicked.connect(self.close_window)
         self.button_minimize_window.clicked.connect(self.minimize_window)
         self.button_fullscreen_window.clicked.connect(self.fullscreen_button_clicked)
@@ -239,25 +252,26 @@ class Main_Application(QMainWindow):
         self.file_explorer.clicked.connect(self.table_cell_clicked)
         self.file_explorer.doubleClicked.connect(self.table_cell_double_clicked)
 
-    #
-    # ui functions
-    #
-    def show_explorer_page(self):
+    """
+    UI updating functions
+        * Updates visual elements
+    """
+    def show_explorer_page(self) -> None:
         self.main_content.setCurrentIndex(0)
         self.input_status_bar.setReadOnly(False)
         self.update_file_explorer()
 
-    def show_media_page(self):
+    def show_media_page(self) -> None:
         self.main_content.setCurrentIndex(1)
         self.input_status_bar.setReadOnly(True)
         self.input_status_bar.setText(file_explorer_manager.Path_Manager.current_path)
 
-    def show_settings_page(self):
+    def show_settings_page(self) -> None:
         self.main_content.setCurrentIndex(2)
         self.input_status_bar.setReadOnly(True)
         self.input_status_bar.setText("SETTINGS")
 
-    def update_file_explorer(self):
+    def update_file_explorer(self) -> None:
         self._file_exp_table_model.clear_all_entries()
 
         files = file_explorer_manager.Path_Manager.get_list_of_entries_in_cur_path()
@@ -317,12 +331,11 @@ class Main_Application(QMainWindow):
         self.setWindowState(Qt.WindowState.WindowActive)
         self.button_fullscreen_window.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("fullscreen.png")))
 
-    # MUST TAKE IN QPOINT
     def check_for_special_bounds(self, pos : QPoint):
         screen_area_geometry = QApplication.primaryScreen().geometry()
         screen_area_geometry = (screen_area_geometry.width(), screen_area_geometry.height())
 
-        taskbar_height = get_taskbar_height()
+        taskbar_height = self.get_taskbar_height()
         # is window at top of screen?
         if pos.y() <= 0:
             return Special_Bounds_Keys.TOP_OF_SCREEN
@@ -333,11 +346,21 @@ class Main_Application(QMainWindow):
         else:
             return Special_Bounds_Keys.NO_SPECIALS
 
-    #
-    # events
-    #
+    # utility function
+    @staticmethod
+    def get_taskbar_height():
+            _height_screen_key = 3
+
+            primary_monitor = MonitorFromPoint((0,0))
+            monitor_info = GetMonitorInfo(primary_monitor)
+            actual_screen_area = monitor_info.get("Monitor")
+            available_screen_area = monitor_info.get("Work")
+            return actual_screen_area[_height_screen_key]-available_screen_area[_height_screen_key]
+    """
+    Slots for signals provided by QWidget() objects
+    """
     def close_window(self):
-        Main_Application.app_ref.exit()
+        app.exit()
 
     def minimize_window(self):
         self.setWindowState(Qt.WindowState.WindowMinimized)
@@ -358,7 +381,6 @@ class Main_Application(QMainWindow):
         # handle doing
         self.try_open_given_directory(input_text)
 
-    # todo
     def refresh_button_pressed(self):
         self.update_file_explorer()
 
@@ -429,10 +451,10 @@ class Main_Application(QMainWindow):
             new_position : QPoint = self.pos() + event.globalPosition().toPoint() - self.click_position
             # ensure that the window is always apparent, even when near the taskbar, as well as if the window hits the top, it will auto fullscreen.
             special_bounds_key = self.check_for_special_bounds(new_position)
-            Main_Application.window_at_top = False
+            self._is_window_at_top = False
 
             if special_bounds_key == Special_Bounds_Keys.TOP_OF_SCREEN:
-                Main_Application.window_at_top = True
+                self._is_window_at_top = True
                 self.move(new_position)
             elif special_bounds_key == Special_Bounds_Keys.NO_SPECIALS:
                 self.move(new_position)
@@ -475,28 +497,22 @@ class Main_Application(QMainWindow):
     def search_button_clicked(self):
         self.search_in_directory()
 
+    """
+    Subclassed Events
+        * Events/functions provided by QMainApplication that have been overridden.
+    """
     def mousePressEvent(self, event):
         self.click_position = event.globalPosition().toPoint()
 
     def mouseReleaseEvent(self, event):
-        if Main_Application.window_at_top:
+        if self._is_window_at_top:
             self.display_fullscreen_enabled()
 
-def get_taskbar_height():
-    _height_screen_key = 3
-
-    primary_monitor = MonitorFromPoint((0,0))
-    monitor_info = GetMonitorInfo(primary_monitor)
-    actual_screen_area = monitor_info.get("Monitor")
-    available_screen_area = monitor_info.get("Work")
-    return actual_screen_area[_height_screen_key]-available_screen_area[_height_screen_key]
 
 def start_application():
-    app = QApplication([])
-
     # define all QT variables here
 
-    window = Main_Application(app)
+    window = Main_Application()
     window.show()
 
     sys.exit(app.exec())

@@ -867,6 +867,7 @@ QPushButton:pressed {
              <property name="styleSheet">
               <string notr="true">QTableView {
 	border: none;
+	outline: none;
 	border-bottom: 2px solid #1F5600;
 	border-left: 2px solid #1F5600;
 	gridline-color:#215E00;
@@ -983,7 +984,13 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
              <property name="cornerButtonEnabled">
               <bool>false</bool>
              </property>
+             <attribute name="horizontalHeaderHighlightSections">
+              <bool>false</bool>
+             </attribute>
              <attribute name="verticalHeaderVisible">
+              <bool>false</bool>
+             </attribute>
+             <attribute name="verticalHeaderHighlightSections">
               <bool>false</bool>
              </attribute>
             </widget>
