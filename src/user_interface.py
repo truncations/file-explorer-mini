@@ -6,11 +6,8 @@ If there are any new UI elements that need to be added, it will be done in this 
 This script also manages the user expereince.
 
 Todo:
-    * sorting based on type FIRST then name (only if folder)
-        + may implement multi sorting if "you wanted to"
+    * implement multi sorting if "you wanted to"
     * right click implementation on files
-    * add a multithreader so the files will load one at a time to prevent QT from freezing using Queued Connections.
-        ! see update_file_explorer() func
 """
 
 from PyQt6 import uic # allows to load ui
@@ -36,7 +33,6 @@ from PyQt6.QtGui import QIcon, QPixmap
 import sys
 import src.configuration as configuration
 import src.file_explorer_manager as file_explorer_manager
-import src.backend as backend
 from subprocess import run as subprocess_run
 from win32api import GetMonitorInfo, MonitorFromPoint
 
@@ -179,6 +175,33 @@ class File_Explorer_Table_Model(QAbstractTableModel):
         if not self._data: return
         self.removeRows(0, len(self._data))
 
+class File_Explorer_Proxy_Model(QSortFilterProxyModel):
+    def __init__(self):
+        super().__init__()
+
+    """OVERRIDE SORTING BEHAVIOR"""
+    def lessThan(self, left: QModelIndex, right: QModelIndex) -> bool:
+        """Currently assumes Folder sort then Name sort (we'll add more later)
+        
+        Returns a boolean:
+            * True -> if left value should come before right value
+            * False -> right value should come before left value"""
+        model = self.sourceModel()
+        left_index_ext = model.index(left.row(), File_Explorer_Keys.TYPE)
+        right_index_ext = model.index(right.row(),  File_Explorer_Keys.TYPE)
+
+        left_entry_name: str = model.data(left, Qt.ItemDataRole.EditRole)
+        right_entry_name: str = model.data(right, Qt.ItemDataRole.EditRole)
+        left_entry_ext: str = model.data(left_index_ext, Qt.ItemDataRole.DisplayRole)
+        right_entry_ext: str = model.data(right_index_ext, Qt.ItemDataRole.DisplayRole)
+
+        if left_entry_ext == right_entry_ext == file_explorer_manager._directory_extension:
+            return left_entry_name.lower() > right_entry_name.lower()
+        elif left_entry_ext == file_explorer_manager._directory_extension or right_entry_ext == file_explorer_manager._directory_extension:
+            return not left_entry_ext == file_explorer_manager._directory_extension
+        else:
+            return left_entry_name.lower() > right_entry_name.lower()
+
 class File_Exp_Worker(QRunnable):
     def __init__(self, main_app: QMainWindow):
         super().__init__()
@@ -220,7 +243,8 @@ class Main_Application(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        self._file_exp_table_model: File_Explorer_Table_Model = File_Explorer_Table_Model()
+        self._file_exp_table_model: File_Explorer_Table_Model | QAbstractTableModel = File_Explorer_Table_Model()
+        self._file_exp_proxy_model: File_Explorer_Proxy_Model | QSortFilterProxyModel = File_Explorer_Proxy_Model()
         self._is_window_at_top: bool = False
         self._thread_pool: QThreadPool = QThreadPool()
         self._cached_icons_by_ext: dict[str, QIcon] = {}
@@ -268,7 +292,9 @@ class Main_Application(QMainWindow):
         Setup the file explorer table (for visuals) displayed in the explorer page of the application.
             * Establishes a M/V architecture with file_explorer as viewer (QTableView) and _file_exp_table_model as model.
         """
-        self.file_explorer.setModel(self._file_exp_table_model)
+        self._file_exp_proxy_model.setSourceModel(self._file_exp_table_model)
+        self.file_explorer.setModel(self._file_exp_proxy_model)
+        self.file_explorer.setSortingEnabled(True)
 
         self.file_explorer.horizontalHeader().setFont(self.file_explorer.font())
         self.file_explorer.setColumnWidth(File_Explorer_Keys.NAME, configuration.File_Explorer_Table_Config.NAME_COL_WIDTH)
@@ -462,13 +488,15 @@ class Main_Application(QMainWindow):
             file_explorer_manager.Utility.open_file(directory)
 
     def table_cell_double_clicked(self, index: QModelIndex):
-        path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self._file_exp_table_model.get_entry_data(index.row(), File_Explorer_Keys.NAME))
-        self.open_entry(path_of_item)
+        entry_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
+        path_of_entry = file_explorer_manager.Path_Manager.get_abs_path(entry_name)
+        self.open_entry(path_of_entry)
 
     def table_cell_clicked(self, index: QModelIndex):
-        path_of_item = file_explorer_manager.Path_Manager.get_abs_path(self._file_exp_table_model.get_entry_data(index.row(), File_Explorer_Keys.NAME))
-        extension_of_item = self._file_exp_table_model.get_entry_data(index.row(), File_Explorer_Keys.TYPE)
-        description = file_explorer_manager.UI_Display_Utility.get_file_description(path_of_item, extension_of_item)
+        entry_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
+        path_of_entry = file_explorer_manager.Path_Manager.get_abs_path(entry_name)
+        entry_extension = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.TYPE))
+        description = file_explorer_manager.UI_Display_Utility.get_file_description(path_of_entry, entry_extension)
         self.documentation.setText(description)
 
     def search_in_directory(self):

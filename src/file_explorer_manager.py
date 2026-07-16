@@ -159,6 +159,7 @@ class Path_Manager:
 
     @classmethod
     def navigate_upwards(cls) -> None:
+        # TODO: slightly bugged as spotted on 7/14/2026
         if cls.path_list_shows_only_drive(cls.current_path_compiled):
             cls.update_current_path(drives_path_name)
         else:
