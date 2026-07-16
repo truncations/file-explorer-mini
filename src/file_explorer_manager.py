@@ -233,10 +233,13 @@ class Path_Manager:
             elif os.path.isfile(full_path_to_file):
                 extension_dot_index = cur_file_name.rfind(".")
                 new_entry.extension = cur_file_name[extension_dot_index:] if extension_dot_index != -1 else _file_extension
-            elif cls.path_is_read_accessible(full_path_to_file): # we know its a directory so can we read it?
+            else: # we know its a directory so can we read it?
+                try:
+                    with os.scandir(full_path_to_file) as test:
+                        pass
+                except:
+                    continue
                 new_entry.extension = _directory_extension
-            else: # if fail just skip we have no access to read
-                continue
 
             new_entry.file_name = cur_file_name
             new_entry.date_modified = file_modified_time

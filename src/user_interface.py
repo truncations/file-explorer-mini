@@ -9,7 +9,8 @@ Todo:
     * sorting based on type FIRST then name (only if folder)
         + may implement multi sorting if "you wanted to"
     * right click implementation on files
-    * refactor this too it sucks
+    * add a multithreader so the files will load one at a time to prevent QT from freezing using Queued Connections.
+        ! see update_file_explorer() func
 """
 
 from PyQt6 import uic # allows to load ui
@@ -30,7 +31,7 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QFileIconProvider,
 )
-from PyQt6.QtCore import Qt, QPoint, QFileInfo, QSortFilterProxyModel, QAbstractTableModel, QModelIndex, QEvent
+from PyQt6.QtCore import Qt, QPoint, QFileInfo, QSortFilterProxyModel, QAbstractTableModel, QModelIndex, QEvent, pyqtSignal, pyqtSlot, QRunnable, QThreadPool
 from PyQt6.QtGui import QIcon, QPixmap
 import sys
 import src.configuration as configuration
@@ -150,13 +151,14 @@ class File_Explorer_Table_Model(QAbstractTableModel):
             return Qt.ItemFlag.ItemIsEnabled
         return Qt.ItemFlag(QAbstractTableModel.flags(self, index) | Qt.ItemFlag.ItemIsEditable)
     
-    # remove the default parameter it doesnt work this method gets initialized before QApp does, it just does.
-    def add_entry(self, new_entry_data: list = []):
-        if not self._data: return
-        row = self.rowCount()
-        self.insertRows(row)
-        self._data.append(new_entry_data)
-        self.layoutChanged.emit()
+    def add_multi_entries(self, rows: list[list]):
+        if not rows:
+            return
+        start = len(self._data)
+        end = start + len(rows) - 1
+        self.beginInsertRows(QModelIndex(), start, end)
+        self._data.extend(rows)
+        self.endInsertRows()
     
     def edit_entry(self, row: int, col: int, value, role: int = Qt.ItemDataRole.EditRole):
         if not self._data: return
@@ -177,19 +179,58 @@ class File_Explorer_Table_Model(QAbstractTableModel):
         if not self._data: return
         self.removeRows(0, len(self._data))
 
+class File_Exp_Worker(QRunnable):
+    def __init__(self, main_app: QMainWindow):
+        super().__init__()
+        self.main_app: QMainWindow = main_app
+        # might have to adapt this for even bigger numbers
+        self.query_size = 50
+
+    def _compile_file_to_data(self, file: file_explorer_manager.Entry) -> list:
+        """
+        file_name, file_icon = self.get_name_and_icon_for_table(file)
+
+        self._file_exp_table_model.insertRows(row_count)
+        self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.NAME, file_name)
+        self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.NAME, QIcon(file_icon), Qt.ItemDataRole.DecorationRole)
+        self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.DATE_MODIFIED, file.get_date_modified_str())
+        self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.TYPE, file.extension.strip('.'))
+        if not file_explorer_manager.Path_Manager.entry_is_folder(file):
+            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.SIZE, file_explorer_manager.UI_Display_Utility.get_size_str(file.size))
+        """
+        file_name, file_icon = self.main_app.get_name_and_icon_for_table(file)
+        size = not file_explorer_manager.Path_Manager.entry_is_folder(file) and file_explorer_manager.UI_Display_Utility.get_size_str(file.size) or ""
+        return [[file_icon, file_name], file.get_date_modified_str(), file.extension.strip('.'), size]
+
+    @pyqtSlot()
+    def run(self):
+        buffer = []
+        files = file_explorer_manager.Path_Manager.get_list_of_entries_in_cur_path()
+        for file in files:
+            buffer.append(self._compile_file_to_data(file))
+            if len(buffer) >= self.query_size:
+                self.main_app._signal_add_to_file_explorer.emit(buffer)
+                buffer.clear()
+        if buffer:
+            self.main_app._signal_add_to_file_explorer.emit(buffer)
+
 class Main_Application(QMainWindow):
+    _signal_add_to_file_explorer: pyqtSignal = pyqtSignal(list)
+
     def __init__(self):
         super().__init__()
 
-        self._file_exp_table_model: QAbstractTableModel = File_Explorer_Table_Model()
+        self._file_exp_table_model: File_Explorer_Table_Model = File_Explorer_Table_Model()
         self._is_window_at_top: bool = False
+        self._thread_pool: QThreadPool = QThreadPool()
+        self._cached_icons_by_ext: dict[str, QIcon] = {}
 
         self.load_ui()
         self.design_layouts()
         self.setup_main_window_functions()
         self.setup_file_explorer_table()
-        self.show_page(File_Explorer_Pages.EXPLORER) # show explorer page for default
         self.connect_signals_and_slots()
+        self.show_page(File_Explorer_Pages.EXPLORER) # show explorer page for default
 
     """
     Main Application setup functions (ran with __init__)
@@ -262,6 +303,8 @@ class Main_Application(QMainWindow):
         self.file_explorer.clicked.connect(self.table_cell_clicked)
         self.file_explorer.doubleClicked.connect(self.table_cell_double_clicked)
 
+        self._signal_add_to_file_explorer.connect(self._add_to_file_explorer, Qt.ConnectionType.QueuedConnection)
+
     """
     UI updating functions
         * Updates visual elements
@@ -284,36 +327,12 @@ class Main_Application(QMainWindow):
     def update_file_explorer(self) -> None:
         self._file_exp_table_model.clear_all_entries()
 
-        files = file_explorer_manager.Path_Manager.get_list_of_entries_in_cur_path()
-        row_count = 0
-        # TODO: add a multithreader so the files will load one at a time to prevent QT from freezing using Queued Connections.
-        for file in files:
-            file_name, file_icon = self.get_name_and_icon_for_table(file)
-            index = self._file_exp_table_model.index(row_count, File_Explorer_Keys.NAME)
-
-            self._file_exp_table_model.insertRows(row_count)
-            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.NAME, file_name)
-            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.NAME, QIcon(file_icon), Qt.ItemDataRole.DecorationRole)
-            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.DATE_MODIFIED, file.get_date_modified_str())
-            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.TYPE, file.extension.strip('.'))
-            if not file_explorer_manager.Path_Manager.entry_is_folder(file):
-                self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.SIZE, file_explorer_manager.UI_Display_Utility.get_size_str(file.size))
-            """
-            self.file_explorer.insertRow(row_count)
-
-            self.file_explorer.setCellWidget(row_count, File_Explorer_Keys.NAME, self.get_name_and_icon_for_table(file))
-            self.file_explorer.setItem(row_count, File_Explorer_Keys.DATE_MODIFIED, QTableWidgetItem(file.get_date_modified_str()))
-            self.file_explorer.setItem(row_count, File_Explorer_Keys.TYPE, QTableWidgetItem(file.extension.strip('.')))
-            if not file_explorer_manager.Path_Manager.entry_is_folder(file):
-                self.file_explorer.setItem(row_count, File_Explorer_Keys.SIZE, QTableWidgetItem(file_explorer_manager.UI_Display_Utility.get_size_str(file.size)))
-            """
-
-            
-            row_count += 1
+        file_explorer_worker = File_Exp_Worker(self)
+        self._thread_pool.start(file_explorer_worker)
 
         self.input_status_bar.setText(file_explorer_manager.Path_Manager.current_path)
         self.input_search_bar.setText("")
-        self.label_extra_information.setText(f"{row_count} items in directory")
+        self.label_extra_information.setText(f"{len(file_explorer_manager.Path_Manager.entry_list_of_path)} items in directory")
         self.documentation.setText("Click on a file to see potential documentation about file for clarification.")
 
         self.button_backwards.setEnabled(file_explorer_manager.Path_Manager.can_navigate_backwards())
@@ -326,12 +345,17 @@ class Main_Application(QMainWindow):
         #print(file_explorer_manager.Directory_Manager.navigated_paths, file_explorer_manager.Directory_Manager.navigated_paths_index)
 
     def get_name_and_icon_for_table(self, file: file_explorer_manager.Entry):
-        icon_provider = QFileIconProvider()
-        pixmap_data = icon_provider.icon(QFileInfo(file_explorer_manager.Path_Manager.get_abs_path(file.file_name))).pixmap(32,32)
-        pixmap_data = pixmap_data if pixmap_data is not None else QPixmap(file_explorer_manager.Resource_File_Getter.get_path_to_img("default_no_file_icon.png"))
+        if not file_explorer_manager.Path_Manager.entry_is_drive(file) and self._cached_icons_by_ext.get(file.extension, None) is not None:
+            return (file.file_name, QIcon(self._cached_icons_by_ext[file.extension]))
+        else:
+            icon_provider = QFileIconProvider()
+            pixmap_data = icon_provider.icon(QFileInfo(file_explorer_manager.Path_Manager.get_abs_path(file.file_name))).pixmap(32,32)
+            pixmap_data = pixmap_data if pixmap_data is not None else QPixmap(file_explorer_manager.Resource_File_Getter.get_path_to_img("default_no_file_icon.png"))
+            icon = QIcon(pixmap_data)
 
-        return (file.file_name, pixmap_data)
-    
+            self._cached_icons_by_ext.update({file.extension: icon})
+            return (file.file_name, icon)
+        
     def set_visible_nav_buttons(self, wish_visible: bool):
         self.button_backwards.setVisible(wish_visible)
         self.button_forwards.setVisible(wish_visible)
@@ -463,6 +487,11 @@ class Main_Application(QMainWindow):
     def search_signal_triggered(self):
         self.search_in_directory()
 
+    @pyqtSlot(list)
+    def _add_to_file_explorer(self, buffered_entries: list[list]):
+        if len(buffered_entries) > 0:
+            self._file_exp_table_model.add_multi_entries(buffered_entries)
+        
     """
     Subclassed Events
         * Events/functions provided by QMainApplication that have been overridden.
