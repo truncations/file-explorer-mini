@@ -30,7 +30,21 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem
 )
-from PyQt6.QtCore import Qt, QPoint, QFileInfo, QSortFilterProxyModel, QAbstractTableModel, QModelIndex, QEvent, pyqtSignal, pyqtSlot, QRunnable, QThreadPool, QSize
+from PyQt6.QtCore import (
+    Qt,
+    QPoint,
+    QFileInfo,
+    QSortFilterProxyModel,
+    QAbstractTableModel,
+    QModelIndex,
+    QEvent, 
+    pyqtSignal, 
+    pyqtSlot, 
+    QRunnable,
+    QThreadPool,
+    QSize,
+    QFileSystemWatcher
+)
 from PyQt6.QtMultimedia import QMediaPlayer
 from PyQt6.QtMultimediaWidgets import QVideoWidget
 from PyQt6.QtGui import QIcon, QPixmap
@@ -255,6 +269,7 @@ class Main_Application(QMainWindow):
 
         self._file_exp_table_model: File_Explorer_Table_Model | QAbstractTableModel = File_Explorer_Table_Model()
         self._file_exp_proxy_model: File_Explorer_Proxy_Model | QSortFilterProxyModel = File_Explorer_Proxy_Model()
+        self._file_system_watcher: QFileSystemWatcher = QFileSystemWatcher()
         self._is_window_at_top: bool = False
         self._is_viewing_media: bool = False
         self._thread_pool: QThreadPool = QThreadPool()
@@ -345,6 +360,7 @@ class Main_Application(QMainWindow):
         self._signal_add_to_media_list.connect(self._add_to_media_list, Qt.ConnectionType.QueuedConnection)
         self.media_entry_list.itemClicked.connect(self.list_item_clicked)
 
+        self._file_system_watcher.directoryChanged.connect(self.folder_change_event)
     """
     UI updating functions
         * Updates visual elements
@@ -369,6 +385,9 @@ class Main_Application(QMainWindow):
             page_data["function_to_activate"](page_data["parameter"])
 
     def update_file_explorer(self) -> None:
+        del_objs = self._file_system_watcher.directories()
+        if del_objs:
+            self._file_system_watcher.removePaths(del_objs)
         self.media_entry_list.clear()
         self._file_exp_table_model.clear_all_entries()
 
@@ -385,6 +404,7 @@ class Main_Application(QMainWindow):
         self.button_parent_directory.setEnabled(not file_explorer_manager.Path_Manager.is_current_path_drives())
 
         storage_data = file_explorer_manager.UI_Display_Utility.get_storage_display_data(file_explorer_manager.Path_Manager.current_path_compiled[0])
+        self._file_system_watcher.addPath(file_explorer_manager.Path_Manager.current_path)
         self.progress_bar_storage.setValue(storage_data[0])
         self.display_storage.setText(storage_data[1])
         self.clear_media_display_img()
@@ -517,10 +537,16 @@ class Main_Application(QMainWindow):
         if file_explorer_manager.Path_Manager.path_is_folder(directory):
             file_explorer_manager.Path_Manager.update_to_new_path(directory)
             self.update_file_explorer()
+        elif media_manager.Media_Controller.get_type_of_media(directory) == "image":
+            """TEMPORARY FIX TO ALLOW IMAGES TO BE DISPLAYED.
+                basically makes the program use the image media file reader instead of windows OS.."""
+            self.navigation_tabs_clicked("media")
+            media_manager.Media_Controller.selected_file_name = directory
+            self.update_media_display_img()
         else:
             file_explorer_manager.Utility.open_file(directory)
 
-    # TODO: check for double clicks
+    # TODO: check for left double clicks
     def file_exp_cell_double_clicked(self, index: QModelIndex):
         entry_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
         path_of_entry = file_explorer_manager.Path_Manager.get_abs_path(entry_name)
@@ -540,8 +566,8 @@ class Main_Application(QMainWindow):
         """
         search_query = self.input_search_bar.text().lower()
 
-        for row in range(self._file_exp_table_model.rowCount()):
-            cur_file_name = self._file_exp_table_model.get_entry_data(row, File_Explorer_Keys.NAME)
+        for row in range(self._file_exp_proxy_model.rowCount()):
+            cur_file_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(row, File_Explorer_Keys.NAME)).lower()
             if search_query not in cur_file_name:
                 self.file_explorer.hideRow(row)
             else:
@@ -549,6 +575,11 @@ class Main_Application(QMainWindow):
     
     def search_signal_triggered(self):
         self.search_in_directory()
+
+    def folder_change_event(self, dir_where_changed: str):
+        """triggers when something inside the folder (we're looking at) changes, even if from windows OS file explorer."""
+        if dir_where_changed == file_explorer_manager.Path_Manager.current_path:
+            self.update_file_explorer()
 
     def list_item_clicked(self, item_clicked: QListWidgetItem):
         self._is_viewing_media = True
