@@ -274,10 +274,14 @@ class Main_Application(QMainWindow):
         self._is_viewing_media: bool = False
         self._thread_pool: QThreadPool = QThreadPool()
         self._cached_icons_by_ext: dict[str, QIcon] = {}
+        self._cached_icons_for_media: dict[str, QIcon] = {}
+        self._ctrl_pressed: bool = False
+        self._added_img_size: int = 0
 
         self.load_ui()
         self.design_layouts()
         self.setup_main_window_functions()
+        self.setup_cached_icons_for_media()
         self.setup_file_explorer_table()
         self.connect_signals_and_slots()
         self.show_page(File_Explorer_Pages.EXPLORER) # show explorer page for default
@@ -361,6 +365,11 @@ class Main_Application(QMainWindow):
         self.media_entry_list.itemClicked.connect(self.list_item_clicked)
 
         self._file_system_watcher.directoryChanged.connect(self.folder_change_event)
+    
+    def setup_cached_icons_for_media(self) -> None:
+        self._cached_icons_for_media.update({"image": file_explorer_manager.Resource_File_Getter.get_path_to_img("image.png")})
+        self._cached_icons_for_media.update({"audio": file_explorer_manager.Resource_File_Getter.get_path_to_img("music_note.png")})
+        self._cached_icons_for_media.update({"video": file_explorer_manager.Resource_File_Getter.get_path_to_img("video.png")})
     """
     UI updating functions
         * Updates visual elements
@@ -434,7 +443,7 @@ class Main_Application(QMainWindow):
         if media_manager.Media_Controller.selected_file_name:
             pixmap: QPixmap = QPixmap(media_manager.Media_Controller.selected_file_name)
             size_of_media_image_display: QSize = self.media_image_display.size()
-            max_size = QSize(min(pixmap.size().width(), size_of_media_image_display.width()), min(pixmap.size().height(), size_of_media_image_display.height()))
+            max_size = QSize(min(pixmap.size().width(), size_of_media_image_display.width()) + self._added_img_size, min(pixmap.size().height(), size_of_media_image_display.height()) + self._added_img_size)
             self.media_image_display.setPixmap(pixmap.scaled(max_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
             self.input_status_bar.setText(media_manager.Media_Controller.selected_file_name)
 
@@ -541,6 +550,7 @@ class Main_Application(QMainWindow):
             """TEMPORARY FIX TO ALLOW IMAGES TO BE DISPLAYED.
                 basically makes the program use the image media file reader instead of windows OS.."""
             self.navigation_tabs_clicked("media")
+            self._added_img_size = 0
             media_manager.Media_Controller.selected_file_name = directory
             self.update_media_display_img()
         else:
@@ -583,7 +593,7 @@ class Main_Application(QMainWindow):
 
     def list_item_clicked(self, item_clicked: QListWidgetItem):
         self._is_viewing_media = True
-        
+        self._added_img_size = 0
         file_name = item_clicked.text()
         media_manager.Media_Controller.selected_file_name = file_explorer_manager.Path_Manager.get_abs_path(file_name)
         if media_manager.Media_Controller.get_type_of_media() == 'image':
@@ -597,8 +607,8 @@ class Main_Application(QMainWindow):
     # TODO: make a media icon for images/pictures :D
     @pyqtSlot(file_explorer_manager.Entry)
     def _add_to_media_list(self, entry: file_explorer_manager.Entry):
-        new_item = QListWidgetItem()
-        new_item.setText(entry.file_name)
+        new_icon = QIcon(QPixmap(self._cached_icons_for_media[entry.media_file_type]))
+        new_item = QListWidgetItem(new_icon, entry.file_name)
         self.media_entry_list.addItem(new_item)
 
     """
@@ -633,6 +643,24 @@ class Main_Application(QMainWindow):
 
     def resizeEvent(self, event: QEvent):
         # resize the pixmap in media if needed
+        self.update_media_display_img()
+
+    def keyPressEvent(self, event : QEvent):
+        key = event.key()
+        if key == Qt.Key.Key_Control:
+            self._ctrl_pressed = True
+    
+    def keyReleaseEvent(self, event: QEvent):
+        key = event.key()
+        if key == Qt.Key.Key_Control:
+            self._ctrl_pressed = False
+
+    def wheelEvent(self, event):
+        if not self._ctrl_pressed or self.main_content.currentIndex() != File_Explorer_Pages.MEDIA:
+            return
+        print(event.angleDelta().y())
+        # temporary will do better xp
+        self._added_img_size += event.angleDelta().y()
         self.update_media_display_img()
 
 def start_application():

@@ -55,6 +55,7 @@ class Entry:
     file_name: str = ""
     extension: str = ""
     is_media_file: bool = False
+    media_file_type: str = "" # "audio", "media", "image"
     date_modified: float = 0.0
     size: int = -1
 
@@ -206,6 +207,10 @@ class Path_Manager:
     @staticmethod
     def path_is_media(full_path: str) -> bool:
         guess = Path_Manager.get_guess_type(full_path)
+        return Path_Manager.mimetype_guess_is_media(guess)
+    
+    @staticmethod
+    def mimetype_guess_is_media(guess: str) -> bool:
         return guess in ['audio', 'video', 'image']
         
     @staticmethod
@@ -241,6 +246,7 @@ class Path_Manager:
             file_statistics = os.stat(cls.get_abs_path(full_path_to_file))
             file_modified_time = file_statistics.st_mtime
             file_size = file_statistics.st_size
+            guess_type_mime = Path_Manager.get_guess_type(full_path_to_file)
 
             if path == drives_path_name:
                 # assume all entries are drives
@@ -257,8 +263,9 @@ class Path_Manager:
                     continue
                 new_entry.extension = _directory_extension
                 
-            if cls.path_is_media(full_path_to_file):
+            if cls.mimetype_guess_is_media(guess_type_mime):
                 new_entry.is_media_file = True
+                new_entry.media_file_type = guess_type_mime
 
             new_entry.file_name = cur_file_name
             new_entry.date_modified = file_modified_time
@@ -344,9 +351,6 @@ class UI_Display_Utility:
         return (percentage, s_format)
 
 class Utility:
-    """
-    IMPLEMENTED VALIDS
-    """
     @staticmethod
     def get_open_file_explorer_command() -> tuple[str, str]:
         file_explorer_dir = os.path.join(os.getenv('WINDIR'), 'explorer.exe')

@@ -1218,22 +1218,122 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
                <number>0</number>
               </property>
               <item>
-               <widget class="QLabel" name="media_image_display">
-                <property name="sizePolicy">
-                 <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
-                  <horstretch>0</horstretch>
-                  <verstretch>0</verstretch>
-                 </sizepolicy>
+               <widget class="QScrollArea" name="scrollArea">
+                <property name="styleSheet">
+                 <string notr="true">QScrollArea {
+	border: none;
+}
+
+QScrollBar:horizontal {
+    background: #215400;
+    height: 15px;
+    margin: 0px 20px;
+	color: #F2F0EA;
+	border-bottom: none;
+}
+
+QScrollBar::handle:horizontal {
+    background: #256600;
+    min-width: 10px;
+}
+
+QScrollBar::add-line:horizontal {
+	background-color: #1C4C00;
+    width: 20px;
+    subcontrol-position: right;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::sub-line:horizontal {
+	background-color: #1C4C00;
+    width: 20px;
+    subcontrol-position: left;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::up-arrow:horizontal, QScrollBar::down-arrow:horizontal {
+	background: #215400;
+}
+
+QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+	background: #215400;
+}
+
+QScrollBar:vertical {
+    background: #215400;
+    width: 15px;
+    margin: 20px 0px;
+	color: #F2F0EA;
+	border-right: none;
+}
+
+QScrollBar::handle:vertical {
+    background: #256600;
+    min-height: 10px;
+}
+
+QScrollBar::add-line:vertical {
+	background-color: #1C4C00;
+    height: 20px;
+    subcontrol-position: bottom;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::sub-line:vertical {
+	background-color: #1C4C00;
+    height: 20px;
+    subcontrol-position: top;
+    subcontrol-origin: margin;
+}
+
+QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+	background: none;
+}
+
+QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+	background: none;
+}</string>
                 </property>
-                <property name="text">
-                 <string>DISPLAY IMAGE HERE</string>
+                <property name="widgetResizable">
+                 <bool>true</bool>
                 </property>
-                <property name="scaledContents">
-                 <bool>false</bool>
-                </property>
-                <property name="alignment">
-                 <set>Qt::AlignmentFlag::AlignCenter</set>
-                </property>
+                <widget class="QWidget" name="scrollAreaWidgetContents">
+                 <property name="geometry">
+                  <rect>
+                   <x>0</x>
+                   <y>0</y>
+                   <width>675</width>
+                   <height>456</height>
+                  </rect>
+                 </property>
+                 <layout class="QHBoxLayout" name="horizontalLayout_9">
+                  <property name="spacing">
+                   <number>0</number>
+                  </property>
+                  <property name="leftMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="topMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="rightMargin">
+                   <number>0</number>
+                  </property>
+                  <property name="bottomMargin">
+                   <number>0</number>
+                  </property>
+                  <item>
+                   <widget class="QLabel" name="media_image_display">
+                    <property name="text">
+                     <string>DISPLAY MEDIA HERE</string>
+                    </property>
+                    <property name="alignment">
+                     <set>Qt::AlignmentFlag::AlignCenter</set>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
                </widget>
               </item>
              </layout>
@@ -1687,8 +1787,8 @@ QLabel {
                       <rect>
                        <x>0</x>
                        <y>0</y>
-                       <width>100</width>
-                       <height>30</height>
+                       <width>243</width>
+                       <height>183</height>
                       </rect>
                      </property>
                      <property name="styleSheet">
