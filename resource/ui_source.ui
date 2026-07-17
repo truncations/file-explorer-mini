@@ -1218,7 +1218,7 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
                <number>0</number>
               </property>
               <item>
-               <widget class="QScrollArea" name="scrollArea">
+               <widget class="QScrollArea" name="media_scroller">
                 <property name="styleSheet">
                  <string notr="true">QScrollArea {
 	border: none;
@@ -1229,7 +1229,7 @@ QScrollBar:horizontal {
     height: 15px;
     margin: 0px 20px;
 	color: #F2F0EA;
-	border-bottom: none;
+	border: none;
 }
 
 QScrollBar::handle:horizontal {
@@ -1264,7 +1264,7 @@ QScrollBar:vertical {
     width: 15px;
     margin: 20px 0px;
 	color: #F2F0EA;
-	border-right: none;
+    border: none;
 }
 
 QScrollBar::handle:vertical {

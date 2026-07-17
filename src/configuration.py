@@ -26,5 +26,10 @@ class Window_Config:
     default_width = 800
     default_height = 500
 
+class Image_Config:
+    min_image_size = 15
+    max_zoomed_image_delta = 1440
+    zoom_window_height_scale = 2.5
+
 def get_max_log_count():
     return _max_log_count

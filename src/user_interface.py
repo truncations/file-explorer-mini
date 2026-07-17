@@ -231,17 +231,6 @@ class File_Exp_Worker(QRunnable):
         self.query_size = 50
 
     def _compile_file_to_data(self, file: file_explorer_manager.Entry) -> list:
-        """
-        file_name, file_icon = self.get_name_and_icon_for_table(file)
-
-        self._file_exp_table_model.insertRows(row_count)
-        self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.NAME, file_name)
-        self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.NAME, QIcon(file_icon), Qt.ItemDataRole.DecorationRole)
-        self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.DATE_MODIFIED, file.get_date_modified_str())
-        self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.TYPE, file.extension.strip('.'))
-        if not file_explorer_manager.Path_Manager.entry_is_folder(file):
-            self._file_exp_table_model.edit_entry(row_count, File_Explorer_Keys.SIZE, file_explorer_manager.UI_Display_Utility.get_size_str(file.size))
-        """
         file_name, file_icon = self.main_app.get_name_and_icon_for_table(file)
         if file.is_media_file:
             self.main_app._signal_add_to_media_list.emit(file)
@@ -275,8 +264,8 @@ class Main_Application(QMainWindow):
         self._thread_pool: QThreadPool = QThreadPool()
         self._cached_icons_by_ext: dict[str, QIcon] = {}
         self._cached_icons_for_media: dict[str, QIcon] = {}
-        self._ctrl_pressed: bool = False
         self._added_img_size: int = 0
+        self._ctrl_pressed: bool = False
 
         self.load_ui()
         self.design_layouts()
@@ -443,7 +432,9 @@ class Main_Application(QMainWindow):
         if media_manager.Media_Controller.selected_file_name:
             pixmap: QPixmap = QPixmap(media_manager.Media_Controller.selected_file_name)
             size_of_media_image_display: QSize = self.media_image_display.size()
-            max_size = QSize(min(pixmap.size().width(), size_of_media_image_display.width()) + self._added_img_size, min(pixmap.size().height(), size_of_media_image_display.height()) + self._added_img_size)
+            width = max(configuration.Image_Config.min_image_size, min(pixmap.size().width(), size_of_media_image_display.width()) + self._added_img_size)
+            height = max(configuration.Image_Config.min_image_size, min(pixmap.size().height(), size_of_media_image_display.height()) + self._added_img_size)
+            max_size = QSize(int(width), int(height))
             self.media_image_display.setPixmap(pixmap.scaled(max_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
             self.input_status_bar.setText(media_manager.Media_Controller.selected_file_name)
 
@@ -643,24 +634,29 @@ class Main_Application(QMainWindow):
 
     def resizeEvent(self, event: QEvent):
         # resize the pixmap in media if needed
+        configuration.Image_Config.max_zoomed_image_delta = self.size().height() * configuration.Image_Config.zoom_window_height_scale
+        self._added_img_size = min(configuration.Image_Config.max_zoomed_image_delta, self._added_img_size)
+
         self.update_media_display_img()
 
-    def keyPressEvent(self, event : QEvent):
+    def keyPressEvent(self, event):
         key = event.key()
         if key == Qt.Key.Key_Control:
             self._ctrl_pressed = True
     
-    def keyReleaseEvent(self, event: QEvent):
+    def keyReleaseEvent(self, event):
         key = event.key()
         if key == Qt.Key.Key_Control:
             self._ctrl_pressed = False
 
     def wheelEvent(self, event):
-        if not self._ctrl_pressed or self.main_content.currentIndex() != File_Explorer_Pages.MEDIA:
+        if not self._ctrl_pressed or not self.media_scroller.underMouse() or self.main_content.currentIndex() != File_Explorer_Pages.MEDIA or not media_manager.Media_Controller.selected_file_name:
             return
-        print(event.angleDelta().y())
-        # temporary will do better xp
-        self._added_img_size += event.angleDelta().y()
+        pixmap_size: QPixmap = self.media_image_display.pixmap()
+        change: int = event.angleDelta().y()
+        if (int(pixmap_size.width()) <= configuration.Image_Config.min_image_size or int(pixmap_size.height()) <= configuration.Image_Config.min_image_size) and change < 0:
+            return
+        self._added_img_size = min(configuration.Image_Config.max_zoomed_image_delta, self._added_img_size + change)
         self.update_media_display_img()
 
 def start_application():
