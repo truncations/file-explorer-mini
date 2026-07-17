@@ -963,7 +963,7 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
           <string notr="true"/>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>1</number>
          </property>
          <widget class="QWidget" name="explorer_page">
           <property name="styleSheet">
@@ -1201,6 +1201,42 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
 	border-left: 2px solid #1F5600;
 }</string>
              </property>
+             <layout class="QHBoxLayout" name="horizontalLayout_8">
+              <property name="spacing">
+               <number>0</number>
+              </property>
+              <property name="leftMargin">
+               <number>0</number>
+              </property>
+              <property name="topMargin">
+               <number>0</number>
+              </property>
+              <property name="rightMargin">
+               <number>0</number>
+              </property>
+              <property name="bottomMargin">
+               <number>0</number>
+              </property>
+              <item>
+               <widget class="QLabel" name="media_image_display">
+                <property name="sizePolicy">
+                 <sizepolicy hsizetype="Ignored" vsizetype="Ignored">
+                  <horstretch>0</horstretch>
+                  <verstretch>0</verstretch>
+                 </sizepolicy>
+                </property>
+                <property name="text">
+                 <string>DISPLAY IMAGE HERE</string>
+                </property>
+                <property name="scaledContents">
+                 <bool>false</bool>
+                </property>
+                <property name="alignment">
+                 <set>Qt::AlignmentFlag::AlignCenter</set>
+                </property>
+               </widget>
+              </item>
+             </layout>
             </widget>
            </item>
            <item>
@@ -1546,8 +1582,8 @@ QLabel {
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>671</width>
-                <height>498</height>
+                <width>243</width>
+                <height>225</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -1651,8 +1687,8 @@ QLabel {
                       <rect>
                        <x>0</x>
                        <y>0</y>
-                       <width>671</width>
-                       <height>183</height>
+                       <width>100</width>
+                       <height>30</height>
                       </rect>
                      </property>
                      <property name="styleSheet">

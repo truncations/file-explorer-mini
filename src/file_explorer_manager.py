@@ -198,10 +198,14 @@ class Path_Manager:
         return entry_data.extension == _file_extension
     
     @staticmethod
-    def path_is_media(full_path: str) -> bool:
+    def get_guess_type(full_path: str):
         guess = mimetypes.guess_type(full_path)[0]
-        if guess is None: return False
-        guess = guess.split('/')[0]
+        if guess is None: return None
+        return guess.split('/')[0]
+
+    @staticmethod
+    def path_is_media(full_path: str) -> bool:
+        guess = Path_Manager.get_guess_type(full_path)
         return guess in ['audio', 'video', 'image']
         
     @staticmethod

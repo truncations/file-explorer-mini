@@ -30,13 +30,14 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem
 )
-from PyQt6.QtCore import Qt, QPoint, QFileInfo, QSortFilterProxyModel, QAbstractTableModel, QModelIndex, QEvent, pyqtSignal, pyqtSlot, QRunnable, QThreadPool
+from PyQt6.QtCore import Qt, QPoint, QFileInfo, QSortFilterProxyModel, QAbstractTableModel, QModelIndex, QEvent, pyqtSignal, pyqtSlot, QRunnable, QThreadPool, QSize
 from PyQt6.QtMultimedia import QMediaPlayer
 from PyQt6.QtMultimediaWidgets import QVideoWidget
 from PyQt6.QtGui import QIcon, QPixmap
 import sys
 import src.configuration as configuration
 import src.file_explorer_manager as file_explorer_manager
+import src.media_controller as media_manager
 from subprocess import run as subprocess_run
 from win32api import GetMonitorInfo, MonitorFromPoint
 
@@ -255,6 +256,7 @@ class Main_Application(QMainWindow):
         self._file_exp_table_model: File_Explorer_Table_Model | QAbstractTableModel = File_Explorer_Table_Model()
         self._file_exp_proxy_model: File_Explorer_Proxy_Model | QSortFilterProxyModel = File_Explorer_Proxy_Model()
         self._is_window_at_top: bool = False
+        self._is_viewing_media: bool = False
         self._thread_pool: QThreadPool = QThreadPool()
         self._cached_icons_by_ext: dict[str, QIcon] = {}
 
@@ -336,11 +338,12 @@ class Main_Application(QMainWindow):
         self.input_search_bar.returnPressed.connect(self.search_signal_triggered)
         self.search_button.clicked.connect(self.search_signal_triggered)
 
-        self.file_explorer.clicked.connect(self.table_cell_clicked)
-        self.file_explorer.doubleClicked.connect(self.table_cell_double_clicked)
+        self.file_explorer.clicked.connect(self.file_exp_cell_clicked)
+        self.file_explorer.doubleClicked.connect(self.file_exp_cell_double_clicked)
 
         self._signal_add_to_file_explorer.connect(self._add_to_file_explorer, Qt.ConnectionType.QueuedConnection)
         self._signal_add_to_media_list.connect(self._add_to_media_list, Qt.ConnectionType.QueuedConnection)
+        self.media_entry_list.itemClicked.connect(self.list_item_clicked)
 
     """
     UI updating functions
@@ -348,8 +351,8 @@ class Main_Application(QMainWindow):
     """
     def show_page(self, main_content_index: int):
         pages = [
-            {"read_only": False}, # explorer
-            {"read_only": True, "function_to_activate": self.input_status_bar.setText, "parameter": file_explorer_manager.Path_Manager.current_path}, # media
+            {"read_only": False, "function_to_activate": self.input_status_bar.setText, "parameter": file_explorer_manager.Path_Manager.current_path}, # explorer
+            {"read_only": True, "function_to_activate": self.input_status_bar.setText, "parameter": (media_manager.Media_Controller.selected_file_name != "" and media_manager.Media_Controller.selected_file_name or file_explorer_manager.Path_Manager.current_path)}, # media
             {"read_only": True, "function_to_activate": self.input_status_bar.setText, "parameter": "Settings"}, # settings
         ]
         page_data = pages[main_content_index]
@@ -384,6 +387,7 @@ class Main_Application(QMainWindow):
         storage_data = file_explorer_manager.UI_Display_Utility.get_storage_display_data(file_explorer_manager.Path_Manager.current_path_compiled[0])
         self.progress_bar_storage.setValue(storage_data[0])
         self.display_storage.setText(storage_data[1])
+        self.clear_media_display_img()
         #print(file_explorer_manager.Directory_Manager.navigated_paths, file_explorer_manager.Directory_Manager.navigated_paths_index)
 
     def get_name_and_icon_for_table(self, file: file_explorer_manager.Entry):
@@ -405,6 +409,18 @@ class Main_Application(QMainWindow):
         self.button_refresh.setVisible(wish_visible)
         self.input_search_bar.setVisible(wish_visible)
         self.search_button.setVisible(wish_visible)
+
+    def update_media_display_img(self):
+        if media_manager.Media_Controller.selected_file_name:
+            pixmap: QPixmap = QPixmap(media_manager.Media_Controller.selected_file_name)
+            size_of_media_image_display: QSize = self.media_image_display.size()
+            max_size = QSize(min(pixmap.size().width(), size_of_media_image_display.width()), min(pixmap.size().height(), size_of_media_image_display.height()))
+            self.media_image_display.setPixmap(pixmap.scaled(max_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+            self.input_status_bar.setText(media_manager.Media_Controller.selected_file_name)
+
+    def clear_media_display_img(self):
+        media_manager.Media_Controller.selected_file_name = ""
+        self.media_image_display.clear()
 
     # helpers for fullscreening
     def display_fullscreen_enabled(self):
@@ -504,12 +520,14 @@ class Main_Application(QMainWindow):
         else:
             file_explorer_manager.Utility.open_file(directory)
 
-    def table_cell_double_clicked(self, index: QModelIndex):
+    # TODO: check for double clicks
+    def file_exp_cell_double_clicked(self, index: QModelIndex):
         entry_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
         path_of_entry = file_explorer_manager.Path_Manager.get_abs_path(entry_name)
         self.open_entry(path_of_entry)
 
-    def table_cell_clicked(self, index: QModelIndex):
+    # TODO: check for single left clicks
+    def file_exp_cell_clicked(self, index: QModelIndex):
         entry_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
         path_of_entry = file_explorer_manager.Path_Manager.get_abs_path(entry_name)
         entry_extension = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.TYPE))
@@ -531,6 +549,14 @@ class Main_Application(QMainWindow):
     
     def search_signal_triggered(self):
         self.search_in_directory()
+
+    def list_item_clicked(self, item_clicked: QListWidgetItem):
+        self._is_viewing_media = True
+        
+        file_name = item_clicked.text()
+        media_manager.Media_Controller.selected_file_name = file_explorer_manager.Path_Manager.get_abs_path(file_name)
+        if media_manager.Media_Controller.get_type_of_media() == 'image':
+            self.update_media_display_img()
 
     @pyqtSlot(list)
     def _add_to_file_explorer(self, buffered_entries: list[list]):
@@ -573,6 +599,10 @@ class Main_Application(QMainWindow):
     def mouseReleaseEvent(self, event: QEvent):
         if self._is_window_at_top:
             self.display_fullscreen_enabled()
+
+    def resizeEvent(self, event: QEvent):
+        # resize the pixmap in media if needed
+        self.update_media_display_img()
 
 def start_application():
     # define all QT variables here
