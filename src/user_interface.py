@@ -267,7 +267,6 @@ class Main_Application(QMainWindow):
         self._thread_pool: QThreadPool = QThreadPool()
         self._cached_icons_by_ext: dict[str, QIcon] = {}
         self._cached_icons_for_media: dict[str, QIcon] = {}
-        self._added_img_size: int = 0
         self._ctrl_pressed: bool = False
         self._is_playing_media: bool = False
 
@@ -377,6 +376,7 @@ class Main_Application(QMainWindow):
         self.slider_progress.sliderPressed.connect(self.media_progress_slider_pressed)
         self.slider_progress.sliderMoved.connect(self.media_progress_slider_moved)
         self.slider_progress.sliderReleased.connect(self.media_progress_slider_released)
+        self.slider_setting.sliderMoved.connect(self.media_setting_slider_moved)
         #QSlider.isSliderDown()
         #QSlider.setMaximum
     
@@ -430,6 +430,8 @@ class Main_Application(QMainWindow):
 
         self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
         self.slider_progress.setValue(0)
+        self.slider_setting.setValue(100)
+        self.slider_setting.setMaximum(100)
 
         self.progress_bar_storage.setValue(storage_data[0])
         self.display_storage.setText(storage_data[1])
@@ -460,9 +462,11 @@ class Main_Application(QMainWindow):
         self.clear_media_display()
         media_manager.Media_Controller.selected_file_name = path_to_media_file
         self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
-        self.slider_progress.setValue(0)
-        self._added_img_size = 0
+        self.slider_setting.setValue(100)
+        self.media_setting_slider_moved(100)
         self._is_playing_media = False
+
+        self.update_media_label()
 
         media_type_of_file = media_manager.Media_Controller.get_type_of_media() 
         if media_type_of_file == 'image':
@@ -479,21 +483,31 @@ class Main_Application(QMainWindow):
             self.media_video_widget.setVisible(False)
             self.media_scroller.setVisible(True)
 
+            self.slider_setting.setMaximum(configuration.Image_Config.max_zoom_scale_by_percentage)
+
             pixmap: QPixmap = QPixmap(media_manager.Media_Controller.selected_file_name)
             size_of_media_image_display: QSize = self.media_scroller.size()
-            width = max(configuration.Image_Config.min_image_size, min(pixmap.size().width(), size_of_media_image_display.width()) + self._added_img_size)
-            height = max(configuration.Image_Config.min_image_size, min(pixmap.size().height(), size_of_media_image_display.height()) + self._added_img_size)
+            zoom = self.slider_setting.value()/100
+            # fix math for this especially when full screening
+            width = min(pixmap.size().width(), size_of_media_image_display.width()) * zoom
+            height = min(pixmap.size().height(), size_of_media_image_display.height()) * zoom
             max_size = QSize(int(width), int(height))
             self.media_image_display.setPixmap(pixmap.scaled(max_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
 
     def update_media_display_video(self):
         if media_manager.Media_Controller.selected_file_name:
+
+            self.slider_setting.setMaximum(100)
+
             self.media_video_widget.setVisible(True)
             self.media_scroller.setVisible(False)
             self.media_player_sys.setSource(QUrl.fromLocalFile(media_manager.Media_Controller.selected_file_name))
 
     def update_media_display_audio(self):
         if media_manager.Media_Controller.selected_file_name:
+
+            self.slider_setting.setMaximum(100)
+
             self.media_video_widget.setVisible(False)
             self.media_scroller.setVisible(True)
             self.media_player_sys.setSource(QUrl.fromLocalFile(media_manager.Media_Controller.selected_file_name))
@@ -504,6 +518,12 @@ class Main_Application(QMainWindow):
         self.media_image_display.clear()
 
         self.media_player_sys.setSource(QUrl())
+
+    def convert_num_to_time(self, value: int) -> tuple:
+        hours = value // 3600
+        minutes = (value-(hours*3600))//60
+        seconds = value-(minutes*60)
+        return (hours, minutes, seconds)
 
     # helpers for fullscreening
     def display_fullscreen_enabled(self):
@@ -702,13 +722,6 @@ class Main_Application(QMainWindow):
             height = min(pixmap.size().height(), size_of_media_image_display.height())
             self.media_image_display.setPixmap(pixmap.scaled(QSize(width, height), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
 
-
-    def convert_num_to_time(self, value: int) -> tuple:
-        hours = value // 3600
-        minutes = (value-(hours*3600))//60
-        seconds = value-(minutes*60)
-        return (hours, minutes, seconds)
-    
     def media_progress_slider_pressed(self):
         self.media_player_sys.pause()
         self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
@@ -722,6 +735,18 @@ class Main_Application(QMainWindow):
         if self._is_playing_media:
             self.media_player_sys.play()
             self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("pause.png")))
+
+    def media_setting_slider_moved(self, value: int):
+        if media_manager.Media_Controller.get_type_of_media() == 'image':
+            # snap to 100 b/c thats the magic value
+            if value >= 90 and value <= 110 and value != 100:
+                self.slider_setting.setValue(100)
+            else:
+                self.label_setting.setText(f"Zoom: {value:,}%")
+            self.update_media_display_img()
+        else: # video or audio
+            self.label_setting.setText(f"Volume: {value}%")
+            self.media_audio_output.setVolume(value/100)
 
     @pyqtSlot(list)
     def _add_to_file_explorer(self, buffered_entries: list[list]):
@@ -773,9 +798,6 @@ class Main_Application(QMainWindow):
 
     def resizeEvent(self, event: QEvent):
         # resize the pixmap in media if needed
-        configuration.Image_Config.max_zoomed_image_delta = self.size().height() * configuration.Image_Config.zoom_window_height_scale
-        self._added_img_size = min(configuration.Image_Config.max_zoomed_image_delta, self._added_img_size)
-
         if media_manager.Media_Controller.selected_file_name:
             media_type_of_file = media_manager.Media_Controller.get_type_of_media() 
             if media_type_of_file == 'image':
@@ -799,10 +821,11 @@ class Main_Application(QMainWindow):
         if media_manager.Media_Controller.get_type_of_media() != "image":
             return
         pixmap_size: QPixmap = self.media_image_display.pixmap()
-        change: int = event.angleDelta().y()
-        if (int(pixmap_size.width()) <= configuration.Image_Config.min_image_size or int(pixmap_size.height()) <= configuration.Image_Config.min_image_size) and change < 0:
-            return
-        self._added_img_size = min(configuration.Image_Config.max_zoomed_image_delta, self._added_img_size + change)
+        change: int = event.angleDelta().y()//abs(event.angleDelta().y())
+
+        self.slider_setting.setValue(self.slider_setting.value() + change*configuration.Image_Config.change_zoom_by_wheel_amt)
+        self.label_setting.setText(f"Zoom: {self.slider_setting.value():,}%")
+
         self.update_media_display_img()
 
 def start_application():

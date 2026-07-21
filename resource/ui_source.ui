@@ -1578,12 +1578,12 @@ QLabel {
                </layout>
               </item>
               <item>
-               <layout class="QVBoxLayout" name="volume_section" stretch="3,1">
+               <layout class="QVBoxLayout" name="extra_setting_section" stretch="3,1">
                 <property name="spacing">
                  <number>0</number>
                 </property>
                 <item>
-                 <widget class="QSlider" name="slider_volume">
+                 <widget class="QSlider" name="slider_setting">
                   <property name="styleSheet">
                    <string notr="true"/>
                   </property>
@@ -1599,7 +1599,7 @@ QLabel {
                  </widget>
                 </item>
                 <item>
-                 <widget class="QLabel" name="label_volume">
+                 <widget class="QLabel" name="label_setting">
                   <property name="font">
                    <font>
                     <family>Microsoft YaHei UI</family>
@@ -1610,7 +1610,7 @@ QLabel {
                    </font>
                   </property>
                   <property name="text">
-                   <string>100%</string>
+                   <string>Volume: 100%</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignmentFlag::AlignCenter</set>

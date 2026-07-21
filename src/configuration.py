@@ -28,8 +28,9 @@ class Window_Config:
 
 class Image_Config:
     min_image_size = 15
-    max_zoomed_image_delta = 1440
-    zoom_window_height_scale = 2.5
+    change_zoom_by_wheel_amt = 25
+    zoom_window_height_scale = 3
+    max_zoom_scale_by_percentage = 1000
 
 def get_max_log_count():
     return _max_log_count
