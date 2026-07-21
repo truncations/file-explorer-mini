@@ -331,7 +331,13 @@ class Main_Application(QMainWindow):
         self.media_video_widget = QVideoWidget()
         self.media_audio_output = QAudioOutput()
 
-        self.media_player.layout().addWidget(self.media_video_widget)
+        media_vid_widget_holder = QWidget()
+        media_vid_holder_layout = QHBoxLayout()
+
+        media_vid_widget_holder.setLayout(media_vid_holder_layout)
+        media_vid_holder_layout.addWidget(self.media_video_widget)
+        media_vid_holder_layout.setContentsMargins(2,0,0,2)
+        self.media_player.layout().addWidget(media_vid_widget_holder)
         self.media_player_sys.setVideoOutput(self.media_video_widget)
         self.media_player_sys.setAudioOutput(self.media_audio_output)
 
@@ -491,7 +497,7 @@ class Main_Application(QMainWindow):
             # fix math for this especially when full screening
             width = min(pixmap.size().width(), size_of_media_image_display.width()) * zoom
             height = min(pixmap.size().height(), size_of_media_image_display.height()) * zoom
-            max_size = QSize(int(width), int(height))
+            max_size = QSize(int(width)-50, int(height)-2)
             self.media_image_display.setPixmap(pixmap.scaled(max_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
 
     def update_media_display_video(self):
