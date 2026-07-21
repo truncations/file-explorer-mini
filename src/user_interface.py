@@ -263,7 +263,7 @@ class Media_List_Item(QListWidgetItem):
         if Main_Application._media_shuffle_enabled:
             return self.assigned_id < other.assigned_id
         else:
-            return self.text() < other.text()
+            return self.text().lower() < other.text().lower()
 
 class Main_Application(QMainWindow):
     _signal_add_to_file_explorer: pyqtSignal = pyqtSignal(list)
