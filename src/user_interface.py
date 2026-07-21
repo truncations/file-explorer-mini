@@ -284,6 +284,7 @@ class Main_Application(QMainWindow):
         self._ctrl_pressed: bool = False
         self._is_playing_media: bool = False
         self._loop_states: int = 1 # 1 -> 3
+        self._stored_volume: int = configuration.Media_Config.default_volume # prevent resetting audio to 100 for each song selected
 
         self.load_ui()
         self.design_layouts()
@@ -453,7 +454,7 @@ class Main_Application(QMainWindow):
 
         self.media_stop_song()
         self.slider_progress.setValue(0)
-        self.slider_setting.setValue(100)
+        self.slider_setting.setValue(self._stored_volume)
         self.slider_setting.setMaximum(100)
 
         Main_Application._media_shuffle_enabled = False
@@ -487,8 +488,6 @@ class Main_Application(QMainWindow):
     def update_media_display(self, path_to_media_file: str, entry_file_name: str | None = None):
         self.clear_media_display()
         media_manager.Media_Controller.selected_file_name = path_to_media_file
-        self.slider_setting.setValue(100)
-        self.media_setting_slider_moved(100)
         self.slider_progress.setMaximum(0)
         
         if entry_file_name:
@@ -502,6 +501,8 @@ class Main_Application(QMainWindow):
 
         media_type_of_file = media_manager.Media_Controller.get_type_of_media() 
         if media_type_of_file == 'image':
+            self.slider_setting.setValue(100)
+            self.media_setting_slider_moved(100)
             self.update_media_display_img()
         elif media_type_of_file == 'video':
             self.update_media_display_video()
@@ -529,7 +530,8 @@ class Main_Application(QMainWindow):
 
     def update_media_display_video(self):
         if media_manager.Media_Controller.selected_file_name:
-
+            self.slider_setting.setValue(self._stored_volume)
+            self.media_setting_slider_moved(self._stored_volume)
             self.slider_setting.setMaximum(100)
 
             self.media_video_widget.setVisible(True)
@@ -538,6 +540,8 @@ class Main_Application(QMainWindow):
 
     def update_media_display_audio(self):
         if media_manager.Media_Controller.selected_file_name:
+            self.slider_setting.setValue(self._stored_volume)
+            self.media_setting_slider_moved(self._stored_volume)
             self.slider_setting.setMaximum(100)
 
             self.media_video_widget.setVisible(False)
@@ -804,6 +808,7 @@ class Main_Application(QMainWindow):
         else: # video or audio
             self.label_setting.setText(f"Volume: {value}%")
             self.media_audio_output.setVolume(value/100)
+            self._stored_volume = value
 
     def media_backwards_clicked(self):
         if media_manager.Media_Controller.get_type_of_media() in ['video', 'audio'] and self.media_player_sys.position() / self.media_player_sys.duration() > configuration.Media_Config.min_vid_audio_percentage_progressed_for_backwards/100:
