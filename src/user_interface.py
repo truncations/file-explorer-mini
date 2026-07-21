@@ -51,6 +51,7 @@ from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaMetaData
 from PyQt6.QtMultimediaWidgets import QVideoWidget
 from PyQt6.QtGui import QIcon, QPixmap
 import sys
+import random
 import src.configuration as configuration
 import src.file_explorer_manager as file_explorer_manager
 import src.media_controller as media_manager
@@ -252,10 +253,23 @@ class File_Exp_Worker(QRunnable):
             self.main_app._signal_add_to_file_explorer.emit(buffer)
         self.main_app._signal_finished_adding_to_file_explorer.emit()
 
+class Media_List_Item(QListWidgetItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.assigned_id: int = -1 # for shuffling
+    
+    def __lt__(self, other: QListWidgetItem):
+        if Main_Application._media_shuffle_enabled:
+            return self.assigned_id < other.assigned_id
+        else:
+            return self.text() < other.text()
+
 class Main_Application(QMainWindow):
     _signal_add_to_file_explorer: pyqtSignal = pyqtSignal(list)
     _signal_finished_adding_to_file_explorer: pyqtSignal = pyqtSignal()
     _signal_add_to_media_list: pyqtSignal = pyqtSignal(file_explorer_manager.Entry)
+    _media_shuffle_enabled: bool = False
 
     def __init__(self):
         super().__init__()
@@ -384,6 +398,7 @@ class Main_Application(QMainWindow):
         self.button_forwards_media.clicked.connect(self.media_forwards_clicked)
         self.button_backwards_media.clicked.connect(self.media_backwards_clicked)
         self.button_loop.clicked.connect(self.media_loop_clicked)
+        self.button_shuffle.clicked.connect(self.media_shuffle_clicked)
     
         self.file_explorer.viewport().installEventFilter(self)
 
@@ -391,6 +406,7 @@ class Main_Application(QMainWindow):
         self._cached_icons_for_media.update({"image": file_explorer_manager.Resource_File_Getter.get_path_to_img("image.png")})
         self._cached_icons_for_media.update({"audio": file_explorer_manager.Resource_File_Getter.get_path_to_img("music_note.png")})
         self._cached_icons_for_media.update({"video": file_explorer_manager.Resource_File_Getter.get_path_to_img("video.png")})
+    
     """
     UI updating functions
         * Updates visual elements
@@ -439,6 +455,9 @@ class Main_Application(QMainWindow):
         self.slider_progress.setValue(0)
         self.slider_setting.setValue(100)
         self.slider_setting.setMaximum(100)
+
+        Main_Application._media_shuffle_enabled = False
+        self.button_shuffle.setChecked(Main_Application._media_shuffle_enabled)
 
         self.progress_bar_storage.setValue(storage_data[0])
         self.display_storage.setText(storage_data[1])
@@ -657,7 +676,6 @@ class Main_Application(QMainWindow):
         tab_button_pressed.setChecked(True)
 
         self.show_page(tab_button_pressed_data["main_content_index"])
-        QStackedLayout.setCurrentIndex
         self.set_visible_nav_buttons(tab_button_pressed_data["set_visible_nav_buttons"])
 
         # just in case for faster trashing
@@ -827,6 +845,16 @@ class Main_Application(QMainWindow):
         else:
             raise ValueError("TOO HIGH VALUE FROM media_loop_clicked.")
 
+    def media_shuffle_clicked(self):
+        Main_Application._media_shuffle_enabled = self.button_shuffle.isChecked()
+        if Main_Application._media_shuffle_enabled:
+            media_entry_count = self.media_entry_list.count()
+            numbers = random.sample(range(media_entry_count), media_entry_count)
+            for index in range(media_entry_count):
+                item: Media_List_Item = self.media_entry_list.item(index)
+                item.assigned_id = numbers[index]
+        self.media_entry_list.sortItems(Qt.SortOrder.AscendingOrder)
+
     @pyqtSlot(list)
     def _add_to_file_explorer(self, buffered_entries: list[list]):
         if len(buffered_entries) > 0:
@@ -835,7 +863,7 @@ class Main_Application(QMainWindow):
     @pyqtSlot(file_explorer_manager.Entry)
     def _add_to_media_list(self, entry: file_explorer_manager.Entry):
         new_icon = QIcon(QPixmap(self._cached_icons_for_media[entry.media_file_type]))
-        new_item = QListWidgetItem(new_icon, entry.file_name)
+        new_item = Media_List_Item(new_icon, entry.file_name)
         self.media_entry_list.addItem(new_item)
 
     @pyqtSlot()
