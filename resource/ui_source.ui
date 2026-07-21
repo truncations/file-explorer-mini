@@ -1294,6 +1294,9 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
 	background: none;
 }</string>
                 </property>
+                <property name="sizeAdjustPolicy">
+                 <enum>QAbstractScrollArea::SizeAdjustPolicy::AdjustIgnored</enum>
+                </property>
                 <property name="widgetResizable">
                  <bool>true</bool>
                 </property>
@@ -1324,6 +1327,12 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
                   </property>
                   <item>
                    <widget class="QLabel" name="media_image_display">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
                     <property name="text">
                      <string>DISPLAY MEDIA HERE</string>
                     </property>
@@ -1578,6 +1587,12 @@ QLabel {
                   <property name="styleSheet">
                    <string notr="true"/>
                   </property>
+                  <property name="maximum">
+                   <number>125</number>
+                  </property>
+                  <property name="value">
+                   <number>100</number>
+                  </property>
                   <property name="orientation">
                    <enum>Qt::Orientation::Horizontal</enum>
                   </property>
@@ -1595,7 +1610,7 @@ QLabel {
                    </font>
                   </property>
                   <property name="text">
-                   <string>0%</string>
+                   <string>100%</string>
                   </property>
                   <property name="alignment">
                    <set>Qt::AlignmentFlag::AlignCenter</set>
