@@ -1634,6 +1634,12 @@ QLabel {
                 </property>
                 <item>
                  <widget class="QSlider" name="slider_progress">
+                  <property name="singleStep">
+                   <number>50</number>
+                  </property>
+                  <property name="pageStep">
+                   <number>500</number>
+                  </property>
                   <property name="orientation">
                    <enum>Qt::Orientation::Horizontal</enum>
                   </property>

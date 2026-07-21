@@ -269,6 +269,7 @@ class Main_Application(QMainWindow):
         self._cached_icons_for_media: dict[str, QIcon] = {}
         self._ctrl_pressed: bool = False
         self._is_playing_media: bool = False
+        self._loop_states: int = 1 # 1 -> 3
 
         self.load_ui()
         self.design_layouts()
@@ -365,9 +366,6 @@ class Main_Application(QMainWindow):
         self.input_search_bar.returnPressed.connect(self.search_signal_triggered)
         self.search_button.clicked.connect(self.search_signal_triggered)
 
-        self.file_explorer.clicked.connect(self.file_exp_cell_clicked)
-        self.file_explorer.doubleClicked.connect(self.file_exp_cell_double_clicked)
-
         self._signal_add_to_file_explorer.connect(self._add_to_file_explorer, Qt.ConnectionType.QueuedConnection)
         self._signal_add_to_media_list.connect(self._add_to_media_list, Qt.ConnectionType.QueuedConnection)
         self._signal_finished_adding_to_file_explorer.connect(self._finished_adding_to_file_explorer, Qt.ConnectionType.QueuedConnection)
@@ -385,7 +383,10 @@ class Main_Application(QMainWindow):
         self.slider_setting.sliderMoved.connect(self.media_setting_slider_moved)
         self.button_forwards_media.clicked.connect(self.media_forwards_clicked)
         self.button_backwards_media.clicked.connect(self.media_backwards_clicked)
+        self.button_loop.clicked.connect(self.media_loop_clicked)
     
+        self.file_explorer.viewport().installEventFilter(self)
+
     def setup_cached_icons_for_media(self) -> None:
         self._cached_icons_for_media.update({"image": file_explorer_manager.Resource_File_Getter.get_path_to_img("image.png")})
         self._cached_icons_for_media.update({"audio": file_explorer_manager.Resource_File_Getter.get_path_to_img("music_note.png")})
@@ -434,7 +435,7 @@ class Main_Application(QMainWindow):
         storage_data = file_explorer_manager.UI_Display_Utility.get_storage_display_data(file_explorer_manager.Path_Manager.current_path_compiled[0])
         self._file_system_watcher.addPath(file_explorer_manager.Path_Manager.current_path)
 
-        self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
+        self.media_stop_song()
         self.slider_progress.setValue(0)
         self.slider_setting.setValue(100)
         self.slider_setting.setMaximum(100)
@@ -467,11 +468,9 @@ class Main_Application(QMainWindow):
     def update_media_display(self, path_to_media_file: str, entry_file_name: str | None = None):
         self.clear_media_display()
         media_manager.Media_Controller.selected_file_name = path_to_media_file
-        self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
         self.slider_setting.setValue(100)
         self.media_setting_slider_moved(100)
         self.slider_progress.setMaximum(0)
-        self._is_playing_media = False
         
         if entry_file_name:
             item = self.media_entry_list.findItems(entry_file_name, Qt.MatchFlag.MatchCaseSensitive)[0]
@@ -479,6 +478,7 @@ class Main_Application(QMainWindow):
                 index = self.media_entry_list.indexFromItem(item)
                 self.media_entry_list.setCurrentRow(index.row())
 
+        self.media_stop_song()
         self.update_media_label()
 
         media_type_of_file = media_manager.Media_Controller.get_type_of_media() 
@@ -496,6 +496,7 @@ class Main_Application(QMainWindow):
             self.media_video_widget.setVisible(False)
             self.media_scroller.setVisible(True)
 
+            self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
             self.slider_setting.setMaximum(configuration.Image_Config.max_zoom_scale_by_percentage)
 
             pixmap: QPixmap = QPixmap(media_manager.Media_Controller.selected_file_name)
@@ -518,7 +519,6 @@ class Main_Application(QMainWindow):
 
     def update_media_display_audio(self):
         if media_manager.Media_Controller.selected_file_name:
-
             self.slider_setting.setMaximum(100)
 
             self.media_video_widget.setVisible(False)
@@ -562,6 +562,33 @@ class Main_Application(QMainWindow):
         else:
             return Special_Bounds_Keys.NO_SPECIALS
 
+    def media_play_song(self):
+        if media_manager.Media_Controller.get_type_of_media() in ['video', 'audio']:
+            self._is_playing_media = True
+            self.media_player_sys.play()
+            self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("pause.png")))
+
+    def media_pause_song(self):
+        self._is_playing_media = False
+        self.media_player_sys.pause()
+        self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
+
+    def media_stop_song(self):
+        self._is_playing_media = False
+        self.media_player_sys.stop()
+        self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
+
+    def media_finished_update(self):
+        if self._loop_states == 1:
+            self.media_player_sys.setPosition(0)
+            self.media_stop_song()
+        elif self._loop_states == 2:
+            self.media_forwards_clicked()
+            self.media_play_song()
+        elif self._loop_states == 3 and self._is_playing_media:
+            self.media_player_sys.setPosition(0)
+            self.media_play_song()
+
     # utility functions
     @staticmethod
     def get_monitor_taskbar_height() -> int:
@@ -586,6 +613,7 @@ class Main_Application(QMainWindow):
         else:
             msg = f"{cd_minutes:02d}:{cd_seconds:02d} / {md_minutes:02d}:{md_seconds:02d}"
         self.label_progress.setText(msg)
+    
     """
     Slots for signals provided by QWidget() objects
     """
@@ -654,12 +682,10 @@ class Main_Application(QMainWindow):
         else:
             file_explorer_manager.Utility.open_file(full_path)
 
-    # TODO: check for left double clicks
     def file_exp_cell_double_clicked(self, index: QModelIndex):
         entry_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
         self.open_entry(entry_name)
 
-    # TODO: check for single left clicks
     def file_exp_cell_clicked(self, index: QModelIndex):
         entry_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
         path_of_entry = file_explorer_manager.Path_Manager.get_abs_path(entry_name)
@@ -697,23 +723,20 @@ class Main_Application(QMainWindow):
             return
         if not media_manager.Media_Controller.get_type_of_media() in ['video', 'audio']:
             return
+
         self._is_playing_media = not self._is_playing_media
 
         if self._is_playing_media:
-            self.media_player_sys.play()
-            self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("pause.png")))
+            self.media_play_song()
         else:
-            self.media_player_sys.pause()
-            self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
+            self.media_pause_song()
             
     def media_sys_progress_changed(self, progress: int):
         if self.slider_progress.isSliderDown():
             return
+        # audio/video finished.
         if progress == self.slider_progress.maximum():
-            self.media_player_sys.stop()
-            self.media_player_sys.setPosition(0)
-            self._is_playing_media = False
-            self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
+            self.media_finished_update()
         self.slider_progress.setValue(progress)
         self.update_media_label()
 
@@ -764,16 +787,17 @@ class Main_Application(QMainWindow):
     def media_backwards_clicked(self):
         if media_manager.Media_Controller.get_type_of_media() in ['video', 'audio'] and self.media_player_sys.position() / self.media_player_sys.duration() > configuration.Media_Config.min_vid_audio_percentage_progressed_for_backwards/100:
             self.media_player_sys.setPosition(0)
+            return
+        row: QModelIndex = self.media_entry_list.currentRow()
+        if row <= -1:
+            return
+        elif row-1 <= -1:
+            row = self.media_entry_list.count()-1
         else:
-            row: QModelIndex = self.media_entry_list.currentRow()
-            if row <= -1:
-                return
-            elif row-1 <= -1:
-                row = self.media_entry_list.count()-1
-            else:
-                row -= 1
-            self.media_entry_list.setCurrentRow(row)
-            self.list_item_clicked(self.media_entry_list.item(row))
+            row -= 1
+        self.media_entry_list.setCurrentRow(row)
+        self.list_item_clicked(self.media_entry_list.item(row))
+        self.media_play_song()
 
     def media_forwards_clicked(self):
         row: QModelIndex = self.media_entry_list.currentRow()
@@ -785,6 +809,23 @@ class Main_Application(QMainWindow):
             row += 1
         self.media_entry_list.setCurrentRow(row)
         self.list_item_clicked(self.media_entry_list.item(row))
+        self.media_play_song()
+
+    def media_loop_clicked(self):
+        self._loop_states += 1
+        if self._loop_states > 3:
+            self._loop_states = 1
+        
+        if self._loop_states == 1:
+            self.button_loop.setChecked(False)
+            self.button_loop.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("refresh.png")))
+        elif self._loop_states == 2:
+            self.button_loop.setChecked(True)
+        elif self._loop_states == 3:
+            self.button_loop.setChecked(True)
+            self.button_loop.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("loop_one_item.png")))
+        else:
+            raise ValueError("TOO HIGH VALUE FROM media_loop_clicked.")
 
     @pyqtSlot(list)
     def _add_to_file_explorer(self, buffered_entries: list[list]):
@@ -804,6 +845,7 @@ class Main_Application(QMainWindow):
     """
     Subclassed Events
         * Events/functions provided by QMainApplication that have been overridden.
+        * Or events with event filters.
     """
     def move_window_event(self, event: QEvent):
         # TODO: fix bad positioning at the top.
@@ -865,6 +907,19 @@ class Main_Application(QMainWindow):
         self.label_setting.setText(f"Zoom: {self.slider_setting.value():,}%")
 
         self.update_media_display_img()
+
+    def eventFilter(self, source, event: QEvent):
+        if source is not self.file_explorer.viewport():
+            return
+        if event.type() == QEvent.Type.MouseButtonDblClick and event.buttons() == Qt.MouseButton.LeftButton:
+            item_clicked_index = self.file_explorer.indexAt(event.pos())
+            if item_clicked_index is not None:
+                self.file_exp_cell_double_clicked(item_clicked_index)
+        elif event.type() == QEvent.Type.MouseButtonPress and event.buttons() == Qt.MouseButton.LeftButton:
+            item_clicked_index = self.file_explorer.indexAt(event.pos())
+            if item_clicked_index is not None:
+                self.file_exp_cell_clicked(item_clicked_index)
+        return super().eventFilter(source, event)
 
 def start_application():
     # define all QT variables here
