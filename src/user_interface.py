@@ -383,8 +383,8 @@ class Main_Application(QMainWindow):
         self.slider_progress.sliderMoved.connect(self.media_progress_slider_moved)
         self.slider_progress.sliderReleased.connect(self.media_progress_slider_released)
         self.slider_setting.sliderMoved.connect(self.media_setting_slider_moved)
-        #QSlider.isSliderDown()
-        #QSlider.setMaximum
+        self.button_forwards_media.clicked.connect(self.media_forwards_clicked)
+        self.button_backwards_media.clicked.connect(self.media_backwards_clicked)
     
     def setup_cached_icons_for_media(self) -> None:
         self._cached_icons_for_media.update({"image": file_explorer_manager.Resource_File_Getter.get_path_to_img("image.png")})
@@ -464,13 +464,20 @@ class Main_Application(QMainWindow):
         self.input_search_bar.setVisible(wish_visible)
         self.search_button.setVisible(wish_visible)
 
-    def update_media_display(self, path_to_media_file: str):
+    def update_media_display(self, path_to_media_file: str, entry_file_name: str | None = None):
         self.clear_media_display()
         media_manager.Media_Controller.selected_file_name = path_to_media_file
         self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
         self.slider_setting.setValue(100)
         self.media_setting_slider_moved(100)
+        self.slider_progress.setMaximum(0)
         self._is_playing_media = False
+        
+        if entry_file_name:
+            item = self.media_entry_list.findItems(entry_file_name, Qt.MatchFlag.MatchCaseSensitive)[0]
+            if item:
+                index = self.media_entry_list.indexFromItem(item)
+                self.media_entry_list.setCurrentRow(index.row())
 
         self.update_media_label()
 
@@ -635,22 +642,22 @@ class Main_Application(QMainWindow):
     def open_actual_file_explorer(self):
         subprocess_run(file_explorer_manager.Utility.get_open_file_explorer_command())
 
-    def open_entry(self, directory: str):
+    def open_entry(self, file_name_inputted: str):
         # note: all drives like C:\, A:\ are folders technically
-        if file_explorer_manager.Path_Manager.path_is_folder(directory):
-            file_explorer_manager.Path_Manager.update_to_new_path(directory)
+        full_path = file_explorer_manager.Path_Manager.get_abs_path(file_name_inputted)
+        if file_explorer_manager.Path_Manager.path_is_folder(full_path):
+            file_explorer_manager.Path_Manager.update_to_new_path(full_path)
             self.update_file_explorer()
-        elif file_explorer_manager.Path_Manager.path_is_media(directory):
+        elif file_explorer_manager.Path_Manager.path_is_media(full_path):
             self.navigation_tabs_clicked("media")
-            self.update_media_display(directory)
+            self.update_media_display(full_path, file_name_inputted)
         else:
-            file_explorer_manager.Utility.open_file(directory)
+            file_explorer_manager.Utility.open_file(full_path)
 
     # TODO: check for left double clicks
     def file_exp_cell_double_clicked(self, index: QModelIndex):
         entry_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
-        path_of_entry = file_explorer_manager.Path_Manager.get_abs_path(entry_name)
-        self.open_entry(path_of_entry)
+        self.open_entry(entry_name)
 
     # TODO: check for single left clicks
     def file_exp_cell_clicked(self, index: QModelIndex):
@@ -753,6 +760,31 @@ class Main_Application(QMainWindow):
         else: # video or audio
             self.label_setting.setText(f"Volume: {value}%")
             self.media_audio_output.setVolume(value/100)
+
+    def media_backwards_clicked(self):
+        if media_manager.Media_Controller.get_type_of_media() in ['video', 'audio'] and self.media_player_sys.position() / self.media_player_sys.duration() > configuration.Media_Config.min_vid_audio_percentage_progressed_for_backwards/100:
+            self.media_player_sys.setPosition(0)
+        else:
+            row: QModelIndex = self.media_entry_list.currentRow()
+            if row <= -1:
+                return
+            elif row-1 <= -1:
+                row = self.media_entry_list.count()-1
+            else:
+                row -= 1
+            self.media_entry_list.setCurrentRow(row)
+            self.list_item_clicked(self.media_entry_list.item(row))
+
+    def media_forwards_clicked(self):
+        row: QModelIndex = self.media_entry_list.currentRow()
+        if row <= -1:
+            return
+        elif row+1 >= self.media_entry_list.count():
+            row = 0
+        else:
+            row += 1
+        self.media_entry_list.setCurrentRow(row)
+        self.list_item_clicked(self.media_entry_list.item(row))
 
     @pyqtSlot(list)
     def _add_to_file_explorer(self, buffered_entries: list[list]):

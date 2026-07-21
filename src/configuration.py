@@ -32,5 +32,8 @@ class Image_Config:
     zoom_window_height_scale = 3
     max_zoom_scale_by_percentage = 1000
 
+class Media_Config:
+    min_vid_audio_percentage_progressed_for_backwards = 5
+
 def get_max_log_count():
     return _max_log_count
