@@ -790,6 +790,9 @@ class Main_Application(QMainWindow):
             self.media_player_sys.play()
             self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("pause.png")))
 
+            if self.slider_progress.value() == self.slider_progress.maximum():
+                self.media_finished_update()
+
     def media_setting_slider_moved(self, value: int):
         if media_manager.Media_Controller.get_type_of_media() == 'image':
             # snap to 100 b/c thats the magic value
