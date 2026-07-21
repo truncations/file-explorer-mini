@@ -28,7 +28,8 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QFileIconProvider,
     QListWidget,
-    QListWidgetItem
+    QListWidgetItem,
+    QSlider
 )
 from PyQt6.QtCore import (
     Qt,
@@ -43,9 +44,10 @@ from PyQt6.QtCore import (
     QRunnable,
     QThreadPool,
     QSize,
-    QFileSystemWatcher
+    QFileSystemWatcher,
+    QUrl
 )
-from PyQt6.QtMultimedia import QMediaPlayer
+from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput
 from PyQt6.QtMultimediaWidgets import QVideoWidget
 from PyQt6.QtGui import QIcon, QPixmap
 import sys
@@ -260,18 +262,19 @@ class Main_Application(QMainWindow):
         self._file_exp_proxy_model: File_Explorer_Proxy_Model | QSortFilterProxyModel = File_Explorer_Proxy_Model()
         self._file_system_watcher: QFileSystemWatcher = QFileSystemWatcher()
         self._is_window_at_top: bool = False
-        self._is_viewing_media: bool = False
         self._thread_pool: QThreadPool = QThreadPool()
         self._cached_icons_by_ext: dict[str, QIcon] = {}
         self._cached_icons_for_media: dict[str, QIcon] = {}
         self._added_img_size: int = 0
         self._ctrl_pressed: bool = False
+        self._is_playing_media: bool = False
 
         self.load_ui()
         self.design_layouts()
         self.setup_main_window_functions()
         self.setup_cached_icons_for_media()
         self.setup_file_explorer_table()
+        self.setup_video_widget_for_media()
         self.connect_signals_and_slots()
         self.show_page(File_Explorer_Pages.EXPLORER) # show explorer page for default
         self.update_file_explorer()
@@ -322,6 +325,15 @@ class Main_Application(QMainWindow):
         self.file_explorer.setColumnWidth(File_Explorer_Keys.TYPE, configuration.File_Explorer_Table_Config.TYPE_COL_WIDTH)
         self.file_explorer.setColumnWidth(File_Explorer_Keys.SIZE, configuration.File_Explorer_Table_Config.SIZE_COL_WIDTH)
 
+    def setup_video_widget_for_media(self) -> None:
+        self.media_player_sys = QMediaPlayer() 
+        self.media_video_widget = QVideoWidget()
+        self.media_audio_output = QAudioOutput()
+
+        self.media_player.layout().addWidget(self.media_video_widget)
+        self.media_player_sys.setVideoOutput(self.media_video_widget)
+        self.media_player_sys.setAudioOutput(self.media_audio_output)
+
     def connect_signals_and_slots(self) -> None:
         """
         Connects all QT Signals and Slots;
@@ -354,6 +366,16 @@ class Main_Application(QMainWindow):
         self.media_entry_list.itemClicked.connect(self.list_item_clicked)
 
         self._file_system_watcher.directoryChanged.connect(self.folder_change_event)
+
+        self.button_playstate.clicked.connect(self.playstate_button_clicked)
+        self.media_player_sys.positionChanged.connect(self.media_sys_progress_changed)
+        self.media_player_sys.durationChanged.connect(self.media_sys_duration_changed)
+
+        self.slider_progress.sliderPressed.connect(self.media_progress_slider_pressed)
+        self.slider_progress.sliderMoved.connect(self.media_progress_slider_moved)
+        self.slider_progress.sliderReleased.connect(self.media_progress_slider_released)
+        #QSlider.isSliderDown()
+        #QSlider.setMaximum
     
     def setup_cached_icons_for_media(self) -> None:
         self._cached_icons_for_media.update({"image": file_explorer_manager.Resource_File_Getter.get_path_to_img("image.png")})
@@ -403,6 +425,10 @@ class Main_Application(QMainWindow):
 
         storage_data = file_explorer_manager.UI_Display_Utility.get_storage_display_data(file_explorer_manager.Path_Manager.current_path_compiled[0])
         self._file_system_watcher.addPath(file_explorer_manager.Path_Manager.current_path)
+
+        self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
+        self.slider_progress.setValue(0)
+
         self.progress_bar_storage.setValue(storage_data[0])
         self.display_storage.setText(storage_data[1])
         self.clear_media_display_img()
@@ -428,8 +454,24 @@ class Main_Application(QMainWindow):
         self.input_search_bar.setVisible(wish_visible)
         self.search_button.setVisible(wish_visible)
 
+    def update_media_display(self):
+        self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
+        self.slider_progress.setValue(0)
+        self._added_img_size = 0
+
+        media_type_of_file = media_manager.Media_Controller.get_type_of_media() 
+        if media_type_of_file == 'image':
+            self.update_media_display_img()
+        elif media_type_of_file == 'video':
+            self.update_media_display_video()
+        elif media_type_of_file == 'audio':
+            pass
+
     def update_media_display_img(self):
         if media_manager.Media_Controller.selected_file_name:
+            self.media_video_widget.setVisible(False)
+            self.media_scroller.setVisible(True)
+
             pixmap: QPixmap = QPixmap(media_manager.Media_Controller.selected_file_name)
             size_of_media_image_display: QSize = self.media_image_display.size()
             width = max(configuration.Image_Config.min_image_size, min(pixmap.size().width(), size_of_media_image_display.width()) + self._added_img_size)
@@ -438,6 +480,13 @@ class Main_Application(QMainWindow):
             self.media_image_display.setPixmap(pixmap.scaled(max_size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
             self.input_status_bar.setText(media_manager.Media_Controller.selected_file_name)
 
+    def update_media_display_video(self):
+        if media_manager.Media_Controller.selected_file_name:
+            self.media_video_widget.setVisible(True)
+            self.media_scroller.setVisible(False)
+            self.media_player_sys.setSource(QUrl.fromLocalFile(media_manager.Media_Controller.selected_file_name))
+
+    # convert this to clear all
     def clear_media_display_img(self):
         media_manager.Media_Controller.selected_file_name = ""
         self.media_image_display.clear()
@@ -466,7 +515,7 @@ class Main_Application(QMainWindow):
         else:
             return Special_Bounds_Keys.NO_SPECIALS
 
-    # utility function
+    # utility functions
     @staticmethod
     def get_monitor_taskbar_height() -> int:
         _height_screen_key = 3
@@ -476,6 +525,20 @@ class Main_Application(QMainWindow):
         actual_screen_area = monitor_info.get("Monitor")
         available_screen_area = monitor_info.get("Work")
         return actual_screen_area[_height_screen_key]-available_screen_area[_height_screen_key]
+    
+    def update_media_label(self):
+        max_duration = int(self.slider_progress.maximum()/1000)
+        current_duration = int(self.slider_progress.value()/1000)
+
+        md_hours, md_minutes, md_seconds = self.convert_num_to_time(max_duration)
+        cd_hours, cd_minutes, cd_seconds = self.convert_num_to_time(current_duration)
+        
+        msg = None
+        if cd_hours > 0:
+            msg = f"{cd_hours:02d}:{cd_minutes:02d}:{cd_seconds:02d} / {md_hours:02d}:{md_minutes:02d}:{md_seconds:02d}"
+        else:
+            msg = f"{cd_minutes:02d}:{cd_seconds:02d} / {md_minutes:02d}:{md_seconds:02d}"
+        self.label_progress.setText(msg)
     """
     Slots for signals provided by QWidget() objects
     """
@@ -537,13 +600,12 @@ class Main_Application(QMainWindow):
         if file_explorer_manager.Path_Manager.path_is_folder(directory):
             file_explorer_manager.Path_Manager.update_to_new_path(directory)
             self.update_file_explorer()
-        elif media_manager.Media_Controller.get_type_of_media(directory) == "image":
+        elif file_explorer_manager.Path_Manager.path_is_media(directory):
             """TEMPORARY FIX TO ALLOW IMAGES TO BE DISPLAYED.
                 basically makes the program use the image media file reader instead of windows OS.."""
             self.navigation_tabs_clicked("media")
-            self._added_img_size = 0
             media_manager.Media_Controller.selected_file_name = directory
-            self.update_media_display_img()
+            self.update_media_display()
         else:
             file_explorer_manager.Utility.open_file(directory)
 
@@ -583,19 +645,64 @@ class Main_Application(QMainWindow):
             self.update_file_explorer()
 
     def list_item_clicked(self, item_clicked: QListWidgetItem):
-        self._is_viewing_media = True
-        self._added_img_size = 0
         file_name = item_clicked.text()
         media_manager.Media_Controller.selected_file_name = file_explorer_manager.Path_Manager.get_abs_path(file_name)
-        if media_manager.Media_Controller.get_type_of_media() == 'image':
-            self.update_media_display_img()
+        self.update_media_display()
+
+    def playstate_button_clicked(self):
+        if not media_manager.Media_Controller.selected_file_name:
+            return
+        if not media_manager.Media_Controller.get_type_of_media() in ['video']:
+            return
+        self._is_playing_media = not self._is_playing_media
+
+        if self._is_playing_media:
+            self.media_player_sys.play()
+            self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("pause.png")))
+        else:
+            self.media_player_sys.pause()
+            self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
+            
+    def media_sys_progress_changed(self, progress: int):
+        if self.slider_progress.isSliderDown():
+            return
+        if progress == self.slider_progress.maximum():
+            self.media_player_sys.stop()
+            self.media_player_sys.setPosition(0)
+            self._is_playing_media = False
+            self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
+        self.slider_progress.setValue(progress)
+        self.update_media_label()
+
+    def media_sys_duration_changed(self, duration: int):
+        self.slider_progress.setMaximum(duration)
+        self.update_media_label()
+
+    def convert_num_to_time(self, value: int) -> tuple:
+        hours = value // 3600
+        minutes = (value-(hours*3600))//60
+        seconds = value-(minutes*60)
+        return (hours, minutes, seconds)
+    
+    def media_progress_slider_pressed(self):
+        self.media_player_sys.pause()
+        self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("play.png")))
+
+    def media_progress_slider_moved(self, value: int):
+        if self.slider_progress.isSliderDown() and media_manager.Media_Controller.selected_file_name and media_manager.Media_Controller.get_type_of_media() in 'video':
+            self.media_player_sys.setPosition(value)
+            self.update_media_label()
+
+    def media_progress_slider_released(self):
+        if self._is_playing_media:
+            self.media_player_sys.play()
+            self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("pause.png")))
 
     @pyqtSlot(list)
     def _add_to_file_explorer(self, buffered_entries: list[list]):
         if len(buffered_entries) > 0:
             self._file_exp_table_model.add_multi_entries(buffered_entries)
     
-    # TODO: make a media icon for images/pictures :D
     @pyqtSlot(file_explorer_manager.Entry)
     def _add_to_media_list(self, entry: file_explorer_manager.Entry):
         new_icon = QIcon(QPixmap(self._cached_icons_for_media[entry.media_file_type]))
@@ -607,10 +714,13 @@ class Main_Application(QMainWindow):
         * Events/functions provided by QMainApplication that have been overridden.
     """
     def move_window_event(self, event: QEvent):
-        if self.isMaximized():
-            self.display_fullscreen_unenabled()
-
         if event.buttons() == Qt.MouseButton.LeftButton:
+            # TODO: fix bad positioning at the top.
+            if self.isMaximized():
+                self.display_fullscreen_unenabled()
+                pos_sum: QPoint = self.pos() + event.globalPosition().toPoint() - self.click_position
+                self.move(QPoint(pos_sum.x(), -7))
+
             new_position : QPoint = self.pos() + event.globalPosition().toPoint() - self.click_position
             # ensure that the window is always apparent, even when near the taskbar, as well as if the window hits the top, it will auto fullscreen.
             special_bounds_key = self.check_for_window_pos_bounds(new_position)
@@ -637,7 +747,10 @@ class Main_Application(QMainWindow):
         configuration.Image_Config.max_zoomed_image_delta = self.size().height() * configuration.Image_Config.zoom_window_height_scale
         self._added_img_size = min(configuration.Image_Config.max_zoomed_image_delta, self._added_img_size)
 
-        self.update_media_display_img()
+        if media_manager.Media_Controller.selected_file_name:
+            media_type_of_file = media_manager.Media_Controller.get_type_of_media() 
+            if media_type_of_file == 'image':
+                self.update_media_display_img()
 
     def keyPressEvent(self, event):
         key = event.key()
