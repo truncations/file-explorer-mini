@@ -1711,8 +1711,8 @@ QLabel {
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>671</width>
-                <height>498</height>
+                <width>243</width>
+                <height>225</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_5">
@@ -1816,8 +1816,8 @@ QLabel {
                       <rect>
                        <x>0</x>
                        <y>0</y>
-                       <width>671</width>
-                       <height>183</height>
+                       <width>100</width>
+                       <height>30</height>
                       </rect>
                      </property>
                      <property name="styleSheet">
