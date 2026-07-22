@@ -5,10 +5,8 @@ If there are any new UI elements that need to be added, it will be done in this 
 
 This script also manages the user expereince.
 
-BRANCH-- TODO:
-- custom sorting by clicking header column
-- plan settings and start
-REMINDER TO PUT THE OLD TODO BACK WHEN DONE
+TODO    
+    * right click implementation on files
 """
 
 from PyQt6 import uic # allows to load ui
@@ -115,8 +113,15 @@ class File_Explorer_Table_Model(QAbstractTableModel):
                 return self._data[index.row()][index.column()][File_Explorer_Keys.DATA_ICON] # ICON
             if role == Qt.ItemDataRole.EditRole or role == Qt.ItemDataRole.DisplayRole:
                 return self._data[index.row()][index.column()][File_Explorer_Keys.DATA_NAME] # NAME
-        if role == Qt.ItemDataRole.DisplayRole or role == Qt.ItemDataRole.EditRole:
+        if role == Qt.ItemDataRole.EditRole:
             return self._data[index.row()][index.column()]
+        elif role == Qt.ItemDataRole.DisplayRole:
+            if index.column() == File_Explorer_Keys.DATE_MODIFIED:
+                return file_explorer_manager.UI_Display_Utility.get_date_modified_str(self._data[index.row()][index.column()])
+            elif index.column() == File_Explorer_Keys.SIZE:
+                return file_explorer_manager.UI_Display_Utility.get_size_str(self._data[index.row()][index.column()])
+            else:
+                return self._data[index.row()][index.column()]
         return None
 
     def headerData(self, section: int, orientation: Qt.Orientation, role: int) -> str:
@@ -204,8 +209,6 @@ class File_Explorer_Proxy_Model(QSortFilterProxyModel):
         super().__init__()
 
     """OVERRIDE SORTING BEHAVIOR"""
-    # TODO: figured out that there's a default column that the proxy model sorts by which in this case is NAME conveniently so
-    # if you do test other header cells SORTING IS FUNCTIONAL but does not behave the way it should be expected, will need to consider that
     def lessThan(self, left: QModelIndex, right: QModelIndex) -> bool:
         """Currently assumes Folder sort then Name sort (we'll add more later)
         
@@ -216,17 +219,19 @@ class File_Explorer_Proxy_Model(QSortFilterProxyModel):
         left_index_ext = model.index(left.row(), File_Explorer_Keys.TYPE)
         right_index_ext = model.index(right.row(),  File_Explorer_Keys.TYPE)
 
-        left_entry_name: str = model.data(left, Qt.ItemDataRole.EditRole)
-        right_entry_name: str = model.data(right, Qt.ItemDataRole.EditRole)
+        left_entry_data: str = model.data(left, Qt.ItemDataRole.EditRole)
+        right_entry_data: str = model.data(right, Qt.ItemDataRole.EditRole)
         left_entry_ext: str = model.data(left_index_ext, Qt.ItemDataRole.DisplayRole)
         right_entry_ext: str = model.data(right_index_ext, Qt.ItemDataRole.DisplayRole)
 
-        if left_entry_ext == right_entry_ext == file_explorer_manager._directory_extension:
-            return left_entry_name.lower() > right_entry_name.lower()
-        elif left_entry_ext == file_explorer_manager._directory_extension or right_entry_ext == file_explorer_manager._directory_extension:
+        if left.column() == File_Explorer_Keys.NAME and left_entry_ext == right_entry_ext == file_explorer_manager._directory_extension:
+            return left_entry_data.lower() > right_entry_data.lower()
+        elif left.column() == File_Explorer_Keys.NAME and (left_entry_ext == file_explorer_manager._directory_extension or right_entry_ext == file_explorer_manager._directory_extension):
             return not left_entry_ext == file_explorer_manager._directory_extension
+        elif type(left_entry_data) is str and type(right_entry_data) is str:
+            return left_entry_data.lower() > right_entry_data.lower()
         else:
-            return left_entry_name.lower() > right_entry_name.lower()
+            return left_entry_data > right_entry_data
 
 class File_Exp_Worker(QRunnable):
     def __init__(self, main_app: QMainWindow):
@@ -240,7 +245,7 @@ class File_Exp_Worker(QRunnable):
         if file.is_media_file:
             self.main_app.media_controller._signal_add_to_media_list.emit(file)
         size = not file_explorer_manager.Path_Manager.entry_is_folder(file) and file_explorer_manager.UI_Display_Utility.get_size_str(file.size) or ""
-        return [[file_icon, file_name], file.get_date_modified_str(), file.extension.strip('.'), size]
+        return [[file_icon, file_name], file.date_modified, file.extension.strip('.'), file.size]
 
     @pyqtSlot()
     def run(self):

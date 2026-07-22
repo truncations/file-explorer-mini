@@ -59,9 +59,6 @@ class Entry:
     date_modified: float = 0.0
     size: int = -1
 
-    def get_date_modified_str(self) -> str:
-        return datetime.datetime.fromtimestamp(self.date_modified).strftime(_time_format_str)
-
     def __str__(self) -> str:
         # FOR DEBUGGING PURPOSES.
         return f"{self.path}, date modified: {self.get_date_modified_str()}, size: {self.size}"
@@ -332,7 +329,6 @@ class UI_Display_Utility:
         except:
             return f"{extension}\n\nUnknown file; No description can be provided."
     
-    # RENAME METHOD
     @staticmethod
     def get_storage_display_data(path) -> tuple[int, str]:
         # returns value for SetValue in progress_bar_storage and a text for setText in display_storage
@@ -349,6 +345,9 @@ class UI_Display_Utility:
         percentage = int((storage_data[1]/storage_data[0])*100)
 
         return (percentage, s_format)
+
+    def get_date_modified_str(date_modified: float) -> str:
+        return datetime.datetime.fromtimestamp(date_modified).strftime(_time_format_str)
 
 class Utility:
     @staticmethod
