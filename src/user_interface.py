@@ -6,9 +6,6 @@ If there are any new UI elements that need to be added, it will be done in this 
 This script also manages the user expereince.
 
 BRANCH-- TODO:
-- issue #11
-- setup quick access list UI
-- multi-select items show UI moment
 - custom sorting by clicking header column
 - plan settings and start
 REMINDER TO PUT THE OLD TODO BACK WHEN DONE
@@ -49,7 +46,8 @@ from PyQt6.QtCore import (
     QThreadPool,
     QSize,
     QFileSystemWatcher,
-    QUrl
+    QUrl,
+    QItemSelection
 )
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaMetaData
 from PyQt6.QtMultimediaWidgets import QVideoWidget
@@ -367,7 +365,8 @@ class Main_Application(QMainWindow):
         self._signal_finished_adding_to_file_explorer.connect(self._finished_adding_to_file_explorer, Qt.ConnectionType.QueuedConnection)
 
         self._file_system_watcher.directoryChanged.connect(self.folder_change_event)
-    
+        self.file_explorer.selectionModel().selectionChanged.connect(self.file_exp_selection_changed)
+        
         self.file_explorer.viewport().installEventFilter(self)
 
     """
@@ -556,6 +555,13 @@ class Main_Application(QMainWindow):
             description = file_explorer_manager.UI_Display_Utility.get_file_description(path_of_entry, entry_extension)
             self.documentation.setText(description)
 
+    def file_exp_selection_changed(self, selected: QItemSelection, deselected: QItemSelection):
+        selected_rows = self.file_explorer.selectionModel().selectedRows()
+        if len(selected_rows) > 1:
+            self.documentation.setText(f"{len(selected_rows)} selected entries.")
+        elif selected_rows:
+            self.file_exp_cell_clicked(selected_rows[0])
+
     def search_in_directory(self):
         """
         Uses a filtering basic substring algorithm to determine what should be searched in given path.
@@ -658,10 +664,6 @@ class Main_Application(QMainWindow):
             item_clicked_index = self.file_explorer.indexAt(event.pos())
             if item_clicked_index is not None:
                 self.file_exp_cell_double_clicked(item_clicked_index)
-        elif event.type() == QEvent.Type.MouseButtonPress and event.buttons() == Qt.MouseButton.LeftButton:
-            item_clicked_index = self.file_explorer.indexAt(event.pos())
-            if item_clicked_index is not None:
-                self.file_exp_cell_clicked(item_clicked_index)
         return super().eventFilter(source, event)
 
 def get_monitor_taskbar_height() -> int:
