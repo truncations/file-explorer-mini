@@ -427,6 +427,7 @@ class Main_Application(QMainWindow):
         self.slider_progress.setValue(0)
         self.slider_setting.setValue(self.media_controller.states.stored_volume)
         self.slider_setting.setMaximum(100)
+        self.media_controller.update_progress_label()
 
         self.media_controller.states.media_shuffle_enabled = False
         self.button_shuffle.setChecked(self.media_controller.states.media_shuffle_enabled)

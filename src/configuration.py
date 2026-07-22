@@ -35,7 +35,7 @@ class Image_Config:
 class Media_Config:
     min_vid_audio_percentage_progressed_for_backwards = 5
     default_zoom = 100
-    default_volume = 100
+    default_volume = 50
     max_volume = 100
 
 def get_max_log_count():
