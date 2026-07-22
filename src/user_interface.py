@@ -543,7 +543,6 @@ class Main_Application(QMainWindow):
             self.media_controller.update_display(full_path, file_name_inputted)
         else:
             file_explorer_manager.Utility.open_file(full_path)
-        self.input_status_bar.setText(full_path)
 
     def file_exp_cell_double_clicked(self, index: QModelIndex):
         entry_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))

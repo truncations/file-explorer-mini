@@ -171,6 +171,8 @@ class Media_Controller(QObject):
         self.clear_display_media()
         self.selected_file_name = path_to_media_file
         self.slider_progress.setMaximum(0)
+
+        self.input_status_bar.setText(path_to_media_file)
         
         # occurs when double clicking on an item and we want to select this/highlight this
         if entry_file_name:
@@ -252,9 +254,8 @@ class Media_Controller(QObject):
     Slots for signals provided by QWidget() objects
     OR events that have been subclassed.
     """
-    def media_finished_trigger_check(self):
-        if self.slider_progress.value() != self.slider_progress.maximum():
-            return
+    # TODO: fix this plz
+    def media_finished_trigger(self):
         loop_state: Loop_States = self.states.loop_state
         if loop_state == Loop_States.NOT_LOOPING:
             self.media_player_system.setPosition(0)
@@ -291,15 +292,16 @@ class Media_Controller(QObject):
         self._is_playing_media = not self._is_playing_media
 
         if self._is_playing_media:
-            self.media_play_song()
+            self.play_song()
         else:
-            self.media_pause_song()
+            self.pause_song()
             
     def media_sys_progress_changed(self, progress: int):
         if self.slider_progress.isSliderDown():
             return
         # audio/video finished.
-        self.media_finished_trigger_check()
+        if progress == self.slider_progress.maximum():
+            self.media_finished_trigger()
         self.slider_progress.setValue(progress)
         self.update_progress_label()
 
@@ -344,7 +346,8 @@ class Media_Controller(QObject):
         if self._is_playing_media:
             self.media_player_system.play()
             self.button_playstate.setIcon(QIcon(file_explorer_manager.Resource_File_Getter.get_path_to_img("pause.png")))
-            self.media_finished_trigger_check()
+            if self.slider_progress.value() == self.slider_progress.maximum():
+                self.media_finished_trigger()
             
     def setting_slider_moved(self, value: int):
         if self.selected_file_type == Media_File_Types.IMAGE:
