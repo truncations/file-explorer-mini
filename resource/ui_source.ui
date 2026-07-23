@@ -1015,7 +1015,7 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
           <string notr="true"/>
          </property>
          <property name="currentIndex">
-          <number>1</number>
+          <number>0</number>
          </property>
          <widget class="QWidget" name="explorer_page">
           <property name="styleSheet">
@@ -1047,6 +1047,9 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
              </property>
              <property name="focusPolicy">
               <enum>Qt::FocusPolicy::ClickFocus</enum>
+             </property>
+             <property name="contextMenuPolicy">
+              <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
              </property>
              <property name="styleSheet">
               <string notr="true">QTableView {

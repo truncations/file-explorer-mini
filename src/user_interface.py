@@ -274,6 +274,7 @@ class Main_Application(QMainWindow):
         self._thread_pool: QThreadPool = QThreadPool()
         self._cached_icons_by_ext: dict[str, QIcon] = {}
         self._ctrl_pressed: bool = False
+        self._file_exp_commands: dict[bytes | int, Callable] = {}
 
         self.load_ui()
         self.design_layouts()
@@ -330,6 +331,12 @@ class Main_Application(QMainWindow):
         self.file_explorer.setColumnWidth(File_Explorer_Keys.TYPE, configuration.File_Explorer_Table_Config.TYPE_COL_WIDTH)
         self.file_explorer.setColumnWidth(File_Explorer_Keys.SIZE, configuration.File_Explorer_Table_Config.SIZE_COL_WIDTH)
 
+        self._table_window_handle: int = int(self.file_explorer.window().winId())
+
+        self._file_exp_commands.update({b'open': self.open_entry})
+        self._file_exp_commands.update({file_explorer_manager.Win32_Features.CUSTOM_COMMAND_START_ID+1: 4})
+        self._file_exp_commands.update({file_explorer_manager.Win32_Features.CUSTOM_COMMAND_START_ID+2: 5})
+
     def setup_video_widget_for_media(self) -> None:
         self.media_controller = media_manager.Media_Controller(self)
         media_video_widget = self.media_controller.video_widget
@@ -371,7 +378,8 @@ class Main_Application(QMainWindow):
 
         self._file_system_watcher.directoryChanged.connect(self.folder_change_event)
         self.file_explorer.selectionModel().selectionChanged.connect(self.file_exp_selection_changed)
-        
+
+        self.file_explorer.customContextMenuRequested.connect(self.file_exp_context_menu_req)
         self.file_explorer.viewport().installEventFilter(self)
 
     """
@@ -589,6 +597,25 @@ class Main_Application(QMainWindow):
         if dir_where_changed == file_explorer_manager.Path_Manager.current_path:
             self.update_file_explorer()
 
+    def file_exp_context_menu_req(self, req_position: QPoint):
+        index: QModelIndex = self.file_explorer.indexAt(req_position)
+        if not index.isValid(): return
+
+        file_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
+        full_file_name = file_explorer_manager.Path_Manager.get_abs_path(file_name)
+        global_pos = self.file_explorer.viewport().mapToGlobal(req_position)
+
+        device_pixel_ratio = self.file_explorer.window().devicePixelRatioF()
+        native_x = int(global_pos.x() * device_pixel_ratio)
+        native_y = int(global_pos.y() * device_pixel_ratio)
+
+        result_invoke_ui_command_if_exists = file_explorer_manager.Win32_Features.open_context_menu(
+            handle_window=self._table_window_handle, full_file_name=full_file_name, x_pos_on_click=native_x, y_pos_on_click=native_y, ui_command_list=self._file_exp_commands.keys()
+        )
+
+        if result_invoke_ui_command_if_exists:
+            self._file_exp_commands[result_invoke_ui_command_if_exists](file_name)
+        
     @pyqtSlot(list)
     def _add_to_file_explorer(self, buffered_entries: list[list]):
         if len(buffered_entries) > 0:

@@ -9,6 +9,11 @@ This also manages paths.
 """
 
 from dataclasses import dataclass
+from win32con import TPM_RETURNCMD, SW_SHOWNORMAL
+from win32com.shell import shell, shellcon
+from typing import Any
+import ctypes
+import win32gui
 import os
 import datetime
 import src.configuration
@@ -132,6 +137,11 @@ class Path_Manager:
     def get_abs_path(cls, file_name: str) -> str:
         # Returns most accurate OS path to the file.
         return os.path.join(cls.current_path, file_name)
+
+    @classmethod
+    def get_folder_path_and_file_name(cls, file_name: str) -> tuple[str, str]:
+        # (FOLDER, FILE_NAME)
+        return os.path.split(file_name)
 
     @classmethod
     def can_navigate_upwards(cls) -> bool:
@@ -273,6 +283,113 @@ class Path_Manager:
         cls.entry_list_of_path = list_of_files[:]
         return cls.entry_list_of_path
 
+class Win32_Features:
+    _RANGE_LOW_ID = 1
+    _RANGE_HIGH_ID = 32767
+    CUSTOM_COMMAND_START_ID = 32768
+
+    @classmethod
+    def get_ui_object_of_full_path(cls, handle_window: int, full_file_name: str, requested_interface_id) -> ctypes.HRESULT:
+        """
+        Returns a COM (Component Object Model)-Interface object that can be used for 
+        user interface/user experience related purposes based on the RIID (Requested Interface ID)
+        and file name.
+
+        Notes:
+        * handle_window - ID of window to display on top of in case visual feedback during these operations are required.
+        * PIDL - Unique Idenfitier of the entry/file system object within a folder.
+        * IShellFolder - enables the ability to handle folder operations.
+
+        Operation Guide:
+        1. Converts full_file_name to a list of PIDLs of each directory based on the desktop folder. (Desktop folder is a CORE windows item.)
+            ex. C:\\Windows\\User\\Me
+            returns: [bytes...<C:>, bytes...<Windows>, bytes...<User>, bytes...<Me>]
+        2. Gets folder IShellFolder and file PIDL through while loop.
+            If the length of the PIDL list > 1, then increase the level of the folder (by popping the PIDL list from the beginning)
+                until PIDL list length == 1, which implies that the only item in the PIDL list is the entry we want to have the context menu for.
+                (The folder will be adjacent to the entry we're looking for)
+        3. Request the interface of the entry.
+        """
+        desktop_folder_ishell: object = shell.SHGetDesktopFolder()
+
+        full_list_pidl: list[bytes]
+        chars_eaten, full_list_pidl, attributes = desktop_folder_ishell.ParseDisplayName(handle_window, None, Path_Manager.get_abs_path(full_file_name))
+
+        folder: object = desktop_folder_ishell
+        pidl_entries: list[bytes] = full_list_pidl
+        while len(full_list_pidl) > 1:
+            current_level_pidl = full_list_pidl.pop(0)
+            folder = folder.BindToObject([current_level_pidl], None, shell.IID_IShellFolder)
+
+        interface: ctypes.HRESULT
+        range_flag_in_out, interface = folder.GetUIObjectOf(handle_window, [pidl_entries], requested_interface_id)
+        return interface
+
+        """
+        win32gui.AppendMenu(popup_menu_handle, win32con.MF_SEPARATOR, 0, "")
+        win32gui.AppendMenu(popup_menu_handle, win32con.MF_STRING, CUSTOM_REFRESH_ID, "Refresh in my app")
+        """
+
+    @classmethod
+    def open_context_menu(cls, handle_window: int, full_file_name: str, x_pos_on_click: None = None, y_pos_on_click: None = None, ui_command_list: list[bytes | int] | None = None, context_window_handle: None = None) -> bytes | int | None:
+        """
+        Opens the win32gui (baked OS software) right-click context menu for user accessibility based on file name.
+        This may include features/options that are found only in File Explorer Mini. If a file is found, attempt
+        to position the context menu right at cursor position regardless of scaling.
+
+        Returns a "result_invoke_ui_command_if_exists" (written in user_interface.py under file_exp_context_menu_req(...)),
+        which is if the command needs to be performed under File Explorer Mini rather than File Explorer on Windows,
+        then the command name will be returned so that the user_interface script can apply the changes instead.
+
+        Notes:
+        * _RANGE_LOW_ID, _RANGE_HIGH_ID - Unique identifiers for context menu windows commands.
+
+        Operation Guide:
+        1. Use get_ui_object_of_full_path(...) to start.
+        2. Create the Windows OS pop up menu as seen in File Explorer (from Windows OS).
+        3. Populate the created popup menu with the possible options given from get_ui_object_of_full_path(...).
+        4. Attempt to get the option that was chosen.
+        5. Perform operations based on the option chosen.
+            a.) If the option is a custom option supported by only File Explorer Mini, it will return that value.
+            b.) If the option is an option given by Windows then:
+                * If the option is supposed to be performed only in File Explorer Mini, then it will return the command value.
+                * If the option is supposed to be performed by Windows, then it will perform it by InvokeCommand.
+        6. If nothing is returned by the other operations, then None is returned to assume that the command has been invoked or an error occurred.
+        """
+
+        interface: ctypes.HRESULT | object = cls.get_ui_object_of_full_path(handle_window, full_file_name, shell.IID_IContextMenu)
+        popup_menu: object = win32gui.CreatePopupMenu()
+        try:
+            interface.QueryContextMenu(
+                popup_menu, 0, cls._RANGE_LOW_ID, cls._RANGE_HIGH_ID, shellcon.CMF_NORMAL
+            )
+
+            chosen_command_id = win32gui.TrackPopupMenu(
+                popup_menu, TPM_RETURNCMD, x_pos_on_click, y_pos_on_click, 0, handle_window, None
+            )
+
+            if chosen_command_id >= cls.CUSTOM_COMMAND_START_ID:
+                return chosen_command_id
+            elif chosen_command_id > 0:
+                command_offset = chosen_command_id - cls._RANGE_LOW_ID
+
+                try:
+                    verb = interface.GetCommandString(command_offset, shellcon.GCS_VERBA)
+                    if verb and verb in ui_command_list:
+                        return verb
+                finally:
+                    invoke_info = ( 
+                        0, handle_window, command_offset, None, None, SW_SHOWNORMAL, 0, 0,
+                    )
+
+                    interface.InvokeCommand(invoke_info)
+        except BaseException as e:
+            print(e)
+        finally:
+            win32gui.DestroyMenu(popup_menu)
+
+        return None
+
 class Resource_File_Getter:
     """ Utility Class to allow files from resource folder to be utilized. """
     @classmethod
@@ -286,7 +403,7 @@ class Resource_File_Getter:
     @staticmethod
     def get_path_to_img(image_file_name: str) -> str:
         """WARNING: image_file_name must include extension."""
-        _, extension = os.path.splitext(image_file_name)
+        _, extension = Path_Manager.get_folder_path_and_file_name(image_file_name)
         assert extension != "" or image_file_name.rfind(".") != -1, "class: Resource_File_Getter from get_dir_image_from_icons: NO FILE EXTENSION DETECTED FOR 'image_file_name'"
         return os.path.join(_resource_path, "icons", image_file_name)
 
