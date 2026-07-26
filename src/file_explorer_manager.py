@@ -289,7 +289,7 @@ class Win32_Features:
     CUSTOM_COMMAND_START_ID = 32768
 
     @classmethod
-    def get_ui_object_of_full_path(cls, handle_window: int, full_file_name: str, requested_interface_id) -> ctypes.HRESULT:
+    def get_ui_object_of_full_path(cls, handle_window: int, file_names: list[str], reference_folder_path: str, requested_interface_id) -> ctypes.HRESULT:
         """
         Returns a COM (Component Object Model)-Interface object that can be used for 
         user interface/user experience related purposes based on the RIID (Requested Interface ID)
@@ -301,29 +301,37 @@ class Win32_Features:
         * IShellFolder - enables the ability to handle folder operations.
 
         Operation Guide:
-        1. Converts full_file_name to a list of PIDLs of each directory based on the desktop folder. (Desktop folder is a CORE windows item.)
+        1. Gets a PIDL for the current path and creates a IShellFolder that binds these PIDLs together. (Desktop folder is a CORE windows item.)
             ex. C:\\Windows\\User\\Me
             returns: [bytes...<C:>, bytes...<Windows>, bytes...<User>, bytes...<Me>]
-        2. Gets folder IShellFolder and file PIDL through while loop.
-            If the length of the PIDL list > 1, then increase the level of the folder (by popping the PIDL list from the beginning)
-                until PIDL list length == 1, which implies that the only item in the PIDL list is the entry we want to have the context menu for.
-                (The folder will be adjacent to the entry we're looking for)
-        3. Request the interface of the entry.
+        2. Get the list of entries by their string name and parse them based on the IShellFolder (created in step 1)
+        3. 2 things can happen:
+            a) If the user didn't select a single entry, then we show a context menu based on non-selected entries.
+            b) If the user did select a minimum of 1 entry, then we show a context menu based on the amt of selected entries.
         """
         desktop_folder_ishell: object = shell.SHGetDesktopFolder()
 
-        full_list_pidl: list[bytes]
-        chars_eaten, full_list_pidl, attributes = desktop_folder_ishell.ParseDisplayName(handle_window, None, Path_Manager.get_abs_path(full_file_name))
+        # compute for the folder first so we can parse everything else
+        folder_pidl: list[bytes]
+        chars_eaten, folder_pidl, attributes = desktop_folder_ishell.ParseDisplayName(handle_window, None, reference_folder_path if reference_folder_path != drives_path_name else "::{20D04FE0-3AEA-1069-A2D8-08002B30309D}")
 
         folder: object = desktop_folder_ishell
-        pidl_entries: list[bytes] = full_list_pidl
-        while len(full_list_pidl) > 1:
-            current_level_pidl = full_list_pidl.pop(0)
+        while len(folder_pidl) > 0:
+            current_level_pidl = folder_pidl.pop(0)
             folder = folder.BindToObject([current_level_pidl], None, shell.IID_IShellFolder)
 
-        interface: ctypes.HRESULT
-        range_flag_in_out, interface = folder.GetUIObjectOf(handle_window, [pidl_entries], requested_interface_id)
-        return interface
+        pidl_entries: list[bytes] = []
+        for _ in range(len(file_names)):
+            chars_eaten, pidl, attributes = folder.ParseDisplayName(handle_window, None, file_names.pop(0))
+            pidl_entries.append(pidl)
+
+        if len(pidl_entries) < 1:
+            view = folder.CreateViewObject(handle_window, shell.IID_IShellView)
+            return view.GetItemObject(shellcon.SVGIO_BACKGROUND, requested_interface_id)
+        else:
+            interface: ctypes.HRESULT
+            range_flag_in_out, interface = folder.GetUIObjectOf(handle_window, pidl_entries, requested_interface_id)
+            return interface
 
         """
         win32gui.AppendMenu(popup_menu_handle, win32con.MF_SEPARATOR, 0, "")
@@ -331,7 +339,7 @@ class Win32_Features:
         """
 
     @classmethod
-    def open_context_menu(cls, handle_window: int, full_file_name: str, x_pos_on_click: None = None, y_pos_on_click: None = None, ui_command_list: list[bytes | int] | None = None, context_window_handle: None = None) -> bytes | int | None:
+    def open_context_menu(cls, handle_window: int, file_names: list[str], reference_folder_path: str, x_pos_on_click: None = None, y_pos_on_click: None = None, ui_command_list: list[bytes | int] | None = None, context_window_handle: None = None) -> bytes | int | None:
         """
         Opens the win32gui (baked OS software) right-click context menu for user accessibility based on file name.
         This may include features/options that are found only in File Explorer Mini. If a file is found, attempt
@@ -357,7 +365,7 @@ class Win32_Features:
         6. If nothing is returned by the other operations, then None is returned to assume that the command has been invoked or an error occurred.
         """
 
-        interface: ctypes.HRESULT | object = cls.get_ui_object_of_full_path(handle_window, full_file_name, shell.IID_IContextMenu)
+        interface: ctypes.HRESULT | object = cls.get_ui_object_of_full_path(handle_window, file_names, reference_folder_path, shell.IID_IContextMenu)
         popup_menu: object = win32gui.CreatePopupMenu()
         try:
             interface.QueryContextMenu(
@@ -377,12 +385,14 @@ class Win32_Features:
                     verb = interface.GetCommandString(command_offset, shellcon.GCS_VERBA)
                     if verb and verb in ui_command_list:
                         return verb
-                finally:
-                    invoke_info = ( 
+                except BaseException as e:
+                    print(e)
+                
+                invoke_info = ( 
                         0, handle_window, command_offset, None, None, SW_SHOWNORMAL, 0, 0,
                     )
 
-                    interface.InvokeCommand(invoke_info)
+                interface.InvokeCommand(invoke_info)
         except BaseException as e:
             print(e)
         finally:

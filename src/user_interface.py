@@ -6,7 +6,12 @@ If there are any new UI elements that need to be added, it will be done in this 
 This script also manages the user expereince.
 
 TODO    
-    * right click implementation on files
+    * Implement IContextMenu 2, and 3. (missing New Folder n stuff)
+    * Proxy context menu with QT instead
+    * "quick access like windows os file explorer" on trello
+    * Basic Shortcut Commands like CTRL + V, CTRL + C.
+    * Move files to a different folder (by our UI).
+        (Or drag and drop...)
 """
 
 from PyQt6 import uic # allows to load ui
@@ -598,11 +603,9 @@ class Main_Application(QMainWindow):
             self.update_file_explorer()
 
     def file_exp_context_menu_req(self, req_position: QPoint):
-        index: QModelIndex = self.file_explorer.indexAt(req_position)
-        if not index.isValid(): return
+        selected_entries: list = self.file_explorer.selectionModel().selectedRows()
 
-        file_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
-        full_file_name = file_explorer_manager.Path_Manager.get_abs_path(file_name)
+        parsed_selected_entries: list = [self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(selected_entries.pop(0).row(), File_Explorer_Keys.NAME)) for _ in range(len(selected_entries))]
         global_pos = self.file_explorer.viewport().mapToGlobal(req_position)
 
         device_pixel_ratio = self.file_explorer.window().devicePixelRatioF()
@@ -610,7 +613,12 @@ class Main_Application(QMainWindow):
         native_y = int(global_pos.y() * device_pixel_ratio)
 
         result_invoke_ui_command_if_exists = file_explorer_manager.Win32_Features.open_context_menu(
-            handle_window=self._table_window_handle, full_file_name=full_file_name, x_pos_on_click=native_x, y_pos_on_click=native_y, ui_command_list=self._file_exp_commands.keys()
+            handle_window=self._table_window_handle, 
+            file_names=parsed_selected_entries, 
+            reference_folder_path=file_explorer_manager.Path_Manager.current_path, 
+            x_pos_on_click=native_x, 
+            y_pos_on_click=native_y, 
+            ui_command_list=self._file_exp_commands.keys()
         )
 
         if result_invoke_ui_command_if_exists:
