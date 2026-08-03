@@ -33,7 +33,8 @@ from PyQt6.QtWidgets import (
     QFileIconProvider,
     QListWidget,
     QListWidgetItem,
-    QSlider
+    QSlider,
+    QMenu,
 )
 from PyQt6.QtCore import (
     Qt,
@@ -50,11 +51,11 @@ from PyQt6.QtCore import (
     QSize,
     QFileSystemWatcher,
     QUrl,
-    QItemSelection
+    QItemSelection,
 )
 from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaMetaData
 from PyQt6.QtMultimediaWidgets import QVideoWidget
-from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtGui import QIcon, QPixmap, QAction, QCursor
 from typing import NamedTuple, Callable, Any
 import sys
 import src.configuration as configuration
@@ -280,6 +281,7 @@ class Main_Application(QMainWindow):
         self._cached_icons_by_ext: dict[str, QIcon] = {}
         self._ctrl_pressed: bool = False
         self._file_exp_commands: dict[bytes | int, Callable] = {}
+        self._shortcuts: dict[str, str] = {}
 
         self.load_ui()
         self.design_layouts()
@@ -339,8 +341,8 @@ class Main_Application(QMainWindow):
         self._table_window_handle: int = int(self.file_explorer.window().winId())
 
         self._file_exp_commands.update({b'open': self.open_entry})
-        self._file_exp_commands.update({file_explorer_manager.Win32_Features.CUSTOM_COMMAND_START_ID+1: 4})
-        self._file_exp_commands.update({file_explorer_manager.Win32_Features.CUSTOM_COMMAND_START_ID+2: 5})
+        self._file_exp_commands.update({file_explorer_manager.Win32_Features.CUSTOM_COMMAND_START_ID+1: self.setup_shortcut_file_exp})
+        #self._file_exp_commands.update({file_explorer_manager.Win32_Features.CUSTOM_COMMAND_START_ID+2: 5})
 
     def setup_video_widget_for_media(self) -> None:
         self.media_controller = media_manager.Media_Controller(self)
@@ -386,6 +388,9 @@ class Main_Application(QMainWindow):
 
         self.file_explorer.customContextMenuRequested.connect(self.file_exp_context_menu_req)
         self.file_explorer.viewport().installEventFilter(self)
+
+        self.quick_access_entry_list.itemClicked.connect(self.quick_access_item_clicked)
+        self.quick_access_entry_list.customContextMenuRequested.connect(self.quick_access_custom_menu_context)
 
     """
     UI updating functions
@@ -448,19 +453,41 @@ class Main_Application(QMainWindow):
         self.progress_bar_storage.setValue(storage_data[0])
         self.display_storage.setText(storage_data[1])
         self.media_controller.clear_display_media()
+
+        self.quick_access_entry_list.clearSelection()
+        for tuple_data in self._shortcuts.values():
+            if file_explorer_manager.Path_Manager.current_path == tuple_data[0]:
+                self.quick_access_entry_list.setCurrentItem(tuple_data[1])
+                break
         #print(file_explorer_manager.Directory_Manager.navigated_paths, file_explorer_manager.Directory_Manager.navigated_paths_index)
 
-    def get_name_and_icon_for_table(self, file: file_explorer_manager.Entry):
-        if not file_explorer_manager.Path_Manager.entry_is_drive(file) and self._cached_icons_by_ext.get(file.extension, None) is not None:
-            return (file.file_name, QIcon(self._cached_icons_by_ext[file.extension]))
-        else:
-            icon_provider = QFileIconProvider()
-            pixmap_data = icon_provider.icon(QFileInfo(file_explorer_manager.Path_Manager.get_abs_path(file.file_name))).pixmap(32,32)
-            pixmap_data = pixmap_data if pixmap_data is not None else QPixmap(file_explorer_manager.Resource_File_Getter.get_path_to_img("default_no_file_icon.png"))
-            icon = QIcon(pixmap_data)
+    def get_name_and_icon_for_table(self, entry: file_explorer_manager.Entry | tuple[str, str], bypass_set_check: bool = False):
+        file_name, file_extension = None, None
 
-            self._cached_icons_by_ext.update({file.extension: icon})
-            return (file.file_name, icon)
+        if type(entry) is file_explorer_manager.Entry:
+            file_name = entry.file_name
+            file_extension = entry.extension
+        else:
+            if entry[1] == "":
+                file_name = entry[0]
+                file_extension = file_explorer_manager._drive_extension
+            else:
+                file_name = file_explorer_manager.os.path.join(entry[0], entry[1])
+                file_extension = entry[1][entry[1].rfind(".")+1:]
+
+        if not bypass_set_check:
+            if not (type(entry) is file_explorer_manager.Entry and file_explorer_manager.Path_Manager.entry_is_drive(entry)) and self._cached_icons_by_ext.get(file_extension, None) is not None:
+                return (file_name, QIcon(self._cached_icons_by_ext[file_extension]))
+
+        icon_provider = QFileIconProvider()
+        pixmap_data = icon_provider.icon(QFileInfo(file_explorer_manager.Path_Manager.get_abs_path(file_name))).pixmap(32,32)
+        pixmap_data = pixmap_data if pixmap_data is not None else QPixmap(file_explorer_manager.Resource_File_Getter.get_path_to_img("default_no_file_icon.png"))
+        icon = QIcon(pixmap_data)
+
+        if not bypass_set_check:
+            self._cached_icons_by_ext.update({file_extension: icon})
+        
+        return (file_name, icon)
         
     def set_visible_nav_buttons(self, wish_visible: bool):
         self.button_backwards.setVisible(wish_visible)
@@ -563,8 +590,9 @@ class Main_Application(QMainWindow):
             file_explorer_manager.Utility.open_file(full_path)
 
     def file_exp_cell_double_clicked(self, index: QModelIndex):
-        entry_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
-        self.open_entry(entry_name)
+        if index.isValid():
+            entry_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
+            self.open_entry(entry_name)
 
     def file_exp_cell_clicked(self, index: QModelIndex):
         entry_name = self._file_exp_proxy_model.data(self._file_exp_proxy_model.index(index.row(), File_Explorer_Keys.NAME))
@@ -622,8 +650,46 @@ class Main_Application(QMainWindow):
         )
 
         if result_invoke_ui_command_if_exists:
-            self._file_exp_commands[result_invoke_ui_command_if_exists](file_name)
-        
+            self._file_exp_commands[result_invoke_ui_command_if_exists](parsed_selected_entries[0])
+
+    def setup_shortcut_file_exp(self, file_name_inputted: str):
+        full_file_path = file_explorer_manager.Path_Manager.get_abs_path(file_name_inputted)
+        file_path_tuple = file_explorer_manager.Path_Manager.get_folder_path_and_file_name(full_file_path)
+        file_path_data = self.get_name_and_icon_for_table(file_path_tuple)
+        if file_path_tuple[1] == "": # is drive
+            file_path_tuple = (file_path_tuple[0], file_path_tuple[0])
+        self.add_to_quick_access_list(file_path_tuple[1], file_path_data)
+
+    def add_to_quick_access_list(self, file_name, data: tuple[str, QIcon]):
+        new_icon = data[1]
+        new_item = QListWidgetItem(new_icon, file_name)
+        self.quick_access_entry_list.addItem(new_item)
+        self._shortcuts.update({file_name: (data[0], new_item)})
+
+    def remove_from_quick_access_list(self, index: QModelIndex, widget_item: QListWidgetItem):
+        file_name = widget_item.text()
+        self.quick_access_entry_list.takeItem(index.row())
+        self.quick_access_entry_list.removeItemWidget(widget_item)
+        self._shortcuts.pop(file_name)
+
+    def quick_access_item_clicked(self, item_clicked: QListWidgetItem):
+        file_name = item_clicked.text()
+        file_explorer_manager.Path_Manager.update_to_new_path(self._shortcuts[file_name][0])
+        self.update_file_explorer()
+
+    def quick_access_custom_menu_context(self, point: QPoint):
+        index: QModelIndex = self.quick_access_entry_list.indexAt(point)
+        if index.isValid():
+            item = self.quick_access_entry_list.itemFromIndex(index)
+
+            global_pos = self.quick_access_entry_list.viewport().mapToGlobal(point)
+            
+            menu = QMenu()
+            action = menu.addAction("Remove from Quick Access")
+            resolved = menu.exec(QPoint(global_pos.x(), global_pos.y()))
+            if resolved == action:
+                self.remove_from_quick_access_list(index, item)
+
     @pyqtSlot(list)
     def _add_to_file_explorer(self, buffered_entries: list[list]):
         if len(buffered_entries) > 0:

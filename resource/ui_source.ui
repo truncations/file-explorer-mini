@@ -433,64 +433,6 @@ QPushButton:pressed {
            </property>
           </widget>
          </item>
-         <item>
-          <widget class="QPushButton" name="button_view_list">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Fixed" vsizetype="Ignored">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>0</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>20</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="icon">
-            <iconset>
-             <normaloff>icons/list.png</normaloff>icons/list.png</iconset>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QPushButton" name="button_view_icon">
-           <property name="sizePolicy">
-            <sizepolicy hsizetype="Fixed" vsizetype="Ignored">
-             <horstretch>0</horstretch>
-             <verstretch>0</verstretch>
-            </sizepolicy>
-           </property>
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>0</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>20</width>
-             <height>16777215</height>
-            </size>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="icon">
-            <iconset>
-             <normaloff>icons/icons.png</normaloff>icons/icons.png</iconset>
-           </property>
-          </widget>
-         </item>
         </layout>
        </item>
       </layout>
@@ -821,7 +763,10 @@ QPushButton:pressed {
           <number>0</number>
          </property>
          <widget class="QWidget" name="explorer_nav_page">
-          <layout class="QHBoxLayout" name="horizontalLayout_10">
+          <property name="contextMenuPolicy">
+           <enum>Qt::ContextMenuPolicy::DefaultContextMenu</enum>
+          </property>
+          <layout class="QVBoxLayout" name="verticalLayout_7">
            <property name="spacing">
             <number>0</number>
            </property>
@@ -838,9 +783,35 @@ QPushButton:pressed {
             <number>0</number>
            </property>
            <item>
-            <widget class="QListWidget" name="quick_access_entry_list">
+            <widget class="QLabel" name="quick_access_label">
              <property name="styleSheet">
-              <string notr="true">border: none;</string>
+              <string notr="true">QLabel {
+	border: none;
+	margin-left: 1px;
+}</string>
+             </property>
+             <property name="text">
+              <string>Quick Access</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QListWidget" name="quick_access_entry_list">
+             <property name="enabled">
+              <bool>true</bool>
+             </property>
+             <property name="focusPolicy">
+              <enum>Qt::FocusPolicy::NoFocus</enum>
+             </property>
+             <property name="contextMenuPolicy">
+              <enum>Qt::ContextMenuPolicy::CustomContextMenu</enum>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">border: none;
+margin-left: 5px;</string>
+             </property>
+             <property name="editTriggers">
+              <set>QAbstractItemView::EditTrigger::NoEditTriggers</set>
              </property>
             </widget>
            </item>
@@ -1361,8 +1332,8 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
                   <rect>
                    <x>0</x>
                    <y>0</y>
-                   <width>675</width>
-                   <height>456</height>
+                   <width>118</width>
+                   <height>19</height>
                   </rect>
                  </property>
                  <property name="styleSheet">

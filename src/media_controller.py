@@ -254,7 +254,7 @@ class Media_Controller(QObject):
     Slots for signals provided by QWidget() objects
     OR events that have been subclassed.
     """
-    # TODO: fix this plz
+
     def media_finished_trigger(self):
         loop_state: Loop_States = self.states.loop_state
         if loop_state == Loop_States.NOT_LOOPING:

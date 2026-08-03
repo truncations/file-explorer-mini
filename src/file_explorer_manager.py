@@ -9,7 +9,7 @@ This also manages paths.
 """
 
 from dataclasses import dataclass
-from win32con import TPM_RETURNCMD, SW_SHOWNORMAL
+from win32con import TPM_RETURNCMD, SW_SHOWNORMAL, MF_SEPARATOR, MF_STRING
 from win32com.shell import shell, shellcon
 from typing import Any
 import ctypes
@@ -321,8 +321,9 @@ class Win32_Features:
             folder = folder.BindToObject([current_level_pidl], None, shell.IID_IShellFolder)
 
         pidl_entries: list[bytes] = []
-        for _ in range(len(file_names)):
-            chars_eaten, pidl, attributes = folder.ParseDisplayName(handle_window, None, file_names.pop(0))
+        file_names_copy = file_names[:]
+        for _ in range(len(file_names_copy)):
+            chars_eaten, pidl, attributes = folder.ParseDisplayName(handle_window, None, file_names_copy.pop(0))
             pidl_entries.append(pidl)
 
         if len(pidl_entries) < 1:
@@ -371,6 +372,10 @@ class Win32_Features:
             interface.QueryContextMenu(
                 popup_menu, 0, cls._RANGE_LOW_ID, cls._RANGE_HIGH_ID, shellcon.CMF_NORMAL
             )
+
+            if len(file_names) == 1 and Path_Manager.get_folder_path_and_file_name(os.path.join(reference_folder_path, file_names[0]))[1].find(".") == -1: 
+                win32gui.AppendMenu(popup_menu, MF_SEPARATOR, 0, "")
+                win32gui.AppendMenu(popup_menu, MF_STRING, Win32_Features.CUSTOM_COMMAND_START_ID+1, "Add to File Explorer Mini Shortcuts")
 
             chosen_command_id = win32gui.TrackPopupMenu(
                 popup_menu, TPM_RETURNCMD, x_pos_on_click, y_pos_on_click, 0, handle_window, None
@@ -444,9 +449,9 @@ class UI_Display_Utility:
     
     @staticmethod
     def get_file_description(path, extension) -> str:
-        if extension == "Drive":
+        if extension == _drive_extension:
             return f"{extension}\n\nA storage volume that contains files and folders."
-        elif extension == "Folder":
+        elif extension == _directory_extension:
             return f"{extension}\n\nA container used to organize files and subfolders in a filesystem."
         try:
             description = magic.from_file(path)
