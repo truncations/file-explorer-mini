@@ -93,12 +93,13 @@ class Media_Controller(QObject):
         self._selected_file_name: str | None = ""
         self.selected_file_type: Media_File_Types = Media_File_Types.NONE
         self.selected_file_metadata: QMediaMetaData | None = None
+        self.main_app_pointer = Main_Application_Pointer
 
         self.states = Media_Controller_States
         self._cached_icons: dict[str, QIcon] = {}
 
         self._setup_QT_media_elements()
-        self._map_all_needed_ui_elements(Main_Application_Pointer)
+        self._map_all_needed_ui_elements(self.main_app_pointer)
         self.setup_cached_icons_for_media()
         self.connect_signals_and_slots()
 
@@ -262,7 +263,6 @@ class Media_Controller(QObject):
             self.stop_song()
         elif loop_state == Loop_States.LOOPING_MEDIA_LIST:
             self.forwards_clicked()
-            self.play_song()
         elif loop_state == Loop_States.LOOPING_SINGLE_ENTRY and self._is_playing_media:
             self.media_player_system.setPosition(0)
             self.play_song()
@@ -361,6 +361,8 @@ class Media_Controller(QObject):
             self.label_setting.setText(f"Volume: {value}%")
             self.audio_output.setVolume(value/100)
             self.states.stored_volume = value
+            configuration.Media_Config.current_volume = self.states.stored_volume
+            self.main_app_pointer.save_save_data()
 
     def backwards_clicked(self):
         if self.is_selected_file_playable() and self.media_player_system.position() / self.media_player_system.duration() > configuration.Media_Config.min_vid_audio_percentage_progressed_for_backwards/100:
@@ -375,7 +377,8 @@ class Media_Controller(QObject):
             row -= 1
         self.media_entry_list.setCurrentRow(row)
         self.media_list_item_clicked(self.media_entry_list.item(row))
-        self.play_song()
+        if configuration.Media_Config.media_auto_play:
+            self.play_song()
 
     def forwards_clicked(self):
         row: QModelIndex = self.media_entry_list.currentRow()
@@ -387,7 +390,8 @@ class Media_Controller(QObject):
             row += 1
         self.media_entry_list.setCurrentRow(row)
         self.media_list_item_clicked(self.media_entry_list.item(row))
-        self.play_song()
+        if configuration.Media_Config.media_auto_play:
+            self.play_song()
 
     def loop_clicked(self):
         loop_state = self.states.loop_state.value + 1

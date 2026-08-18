@@ -720,7 +720,7 @@ QPushButton:pressed {
     </item>
     <item>
      <widget class="QWidget" name="main_container" native="true">
-      <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="0,5">
+      <layout class="QHBoxLayout" name="horizontalLayout_4" stretch="1,5">
        <property name="spacing">
         <number>0</number>
        </property>
@@ -760,7 +760,7 @@ QPushButton:pressed {
           <string notr="true">border-bottom: 2px solid #1F5600;</string>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>2</number>
          </property>
          <widget class="QWidget" name="explorer_nav_page">
           <property name="contextMenuPolicy">
@@ -967,15 +967,6 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
            <property name="bottomMargin">
             <number>0</number>
            </property>
-           <item>
-            <widget class="QTreeWidget" name="settings_tree">
-             <column>
-              <property name="text">
-               <string notr="true">1</string>
-              </property>
-             </column>
-            </widget>
-           </item>
           </layout>
          </widget>
         </widget>
@@ -986,7 +977,7 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
           <string notr="true"/>
          </property>
          <property name="currentIndex">
-          <number>0</number>
+          <number>2</number>
          </property>
          <widget class="QWidget" name="explorer_page">
           <property name="styleSheet">
@@ -1333,7 +1324,7 @@ QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
                    <x>0</x>
                    <y>0</y>
                    <width>118</width>
-                   <height>19</height>
+                   <height>28</height>
                   </rect>
                  </property>
                  <property name="styleSheet">
@@ -1737,13 +1728,13 @@ QLabel {
                <rect>
                 <x>0</x>
                 <y>0</y>
-                <width>243</width>
-                <height>225</height>
+                <width>671</width>
+                <height>498</height>
                </rect>
               </property>
               <layout class="QVBoxLayout" name="verticalLayout_5">
                <property name="spacing">
-                <number>0</number>
+                <number>5</number>
                </property>
                <property name="leftMargin">
                 <number>0</number>
@@ -1758,7 +1749,7 @@ QLabel {
                 <number>0</number>
                </property>
                <item>
-                <widget class="QWidget" name="logs_container" native="true">
+                <widget class="QWidget" name="base_settings_container" native="true">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                    <horstretch>0</horstretch>
@@ -1777,7 +1768,7 @@ QLabel {
                    <height>225</height>
                   </size>
                  </property>
-                 <layout class="QVBoxLayout" name="verticalLayout_6">
+                 <layout class="QVBoxLayout" name="verticalLayout_8">
                   <property name="spacing">
                    <number>5</number>
                   </property>
@@ -1794,7 +1785,7 @@ QLabel {
                    <number>0</number>
                   </property>
                   <item>
-                   <widget class="QLabel" name="logs_header">
+                   <widget class="QLabel" name="logs_header_2">
                     <property name="font">
                      <font>
                       <family>Microsoft YaHei UI</family>
@@ -1803,7 +1794,7 @@ QLabel {
                      </font>
                     </property>
                     <property name="text">
-                     <string>Program Logs (Developer Tools)</string>
+                     <string>General</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -1811,7 +1802,7 @@ QLabel {
                    </widget>
                   </item>
                   <item>
-                   <widget class="QLabel" name="logs_use_case">
+                   <widget class="QLabel" name="logs_use_case_2">
                     <property name="font">
                      <font>
                       <family>Microsoft YaHei UI</family>
@@ -1820,7 +1811,7 @@ QLabel {
                      </font>
                     </property>
                     <property name="text">
-                     <string>Used for debugging purposes.</string>
+                     <string>Customize your File Explorer experience.</string>
                     </property>
                     <property name="alignment">
                      <set>Qt::AlignmentFlag::AlignCenter</set>
@@ -1828,57 +1819,225 @@ QLabel {
                    </widget>
                   </item>
                   <item>
-                   <widget class="QScrollArea" name="list_of_logs">
+                   <widget class="QWidget" name="settings_interaction_holder" native="true">
                     <property name="styleSheet">
-                     <string notr="true">QScrollArea {
-	border: none;
-}</string>
+                     <string notr="true">QPushButton {
+	padding: 0 27px;
+	border: 0px;
+	border-bottom: 2px solid #003A0D;
+}
+
+QPushButton:checked {
+	background-color: #1F5600;
+}
+
+QPushButton:hover {
+	background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 #1E5600, stop:1 #1B4F00);
+}
+
+QPushButton:pressed {
+	background-color: #103F01;
+}
+
+QLineEdit {
+	border: 0;
+	border-bottom: 2px solid #003A0D;
+}
+</string>
                     </property>
-                    <property name="widgetResizable">
-                     <bool>true</bool>
-                    </property>
-                    <widget class="QWidget" name="list_of_logs_contents">
-                     <property name="geometry">
-                      <rect>
-                       <x>0</x>
-                       <y>0</y>
-                       <width>100</width>
-                       <height>30</height>
-                      </rect>
-                     </property>
-                     <property name="styleSheet">
-                      <string notr="true">QWidget {
-	background-color: #174200;
-}</string>
-                     </property>
-                     <layout class="QVBoxLayout" name="list_of_logs_layout">
-                      <property name="leftMargin">
-                       <number>10</number>
-                      </property>
-                      <property name="topMargin">
-                       <number>10</number>
-                      </property>
-                      <property name="rightMargin">
-                       <number>10</number>
-                      </property>
-                      <property name="bottomMargin">
-                       <number>10</number>
-                      </property>
-                      <item>
-                       <spacer name="verticalSpacer_4">
-                        <property name="orientation">
-                         <enum>Qt::Orientation::Vertical</enum>
-                        </property>
-                        <property name="sizeHint" stdset="0">
-                         <size>
-                          <width>20</width>
-                          <height>40</height>
-                         </size>
-                        </property>
-                       </spacer>
-                      </item>
-                     </layout>
-                    </widget>
+                    <layout class="QVBoxLayout" name="verticalLayout_6">
+                     <item>
+                      <widget class="QWidget" name="widget" native="true">
+                       <layout class="QHBoxLayout" name="horizontalLayout_10">
+                        <item>
+                         <widget class="QLabel" name="label">
+                          <property name="text">
+                           <string>Media Autoplay</string>
+                          </property>
+                         </widget>
+                        </item>
+                        <item>
+                         <spacer name="horizontalSpacer_2">
+                          <property name="orientation">
+                           <enum>Qt::Orientation::Horizontal</enum>
+                          </property>
+                          <property name="sizeHint" stdset="0">
+                           <size>
+                            <width>40</width>
+                            <height>20</height>
+                           </size>
+                          </property>
+                         </spacer>
+                        </item>
+                        <item>
+                         <widget class="QPushButton" name="interact_autoplay">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="font">
+                           <font>
+                            <bold>true</bold>
+                           </font>
+                          </property>
+                          <property name="styleSheet">
+                           <string notr="true"/>
+                          </property>
+                          <property name="text">
+                           <string>YES</string>
+                          </property>
+                         </widget>
+                        </item>
+                       </layout>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QWidget" name="widget_2" native="true">
+                       <layout class="QHBoxLayout" name="horizontalLayout_12">
+                        <item>
+                         <widget class="QLabel" name="label_2">
+                          <property name="text">
+                           <string>Max Zoom Amount</string>
+                          </property>
+                         </widget>
+                        </item>
+                        <item>
+                         <spacer name="horizontalSpacer_3">
+                          <property name="orientation">
+                           <enum>Qt::Orientation::Horizontal</enum>
+                          </property>
+                          <property name="sizeHint" stdset="0">
+                           <size>
+                            <width>40</width>
+                            <height>20</height>
+                           </size>
+                          </property>
+                         </spacer>
+                        </item>
+                        <item>
+                         <widget class="QLineEdit" name="interact_max_zoom">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="maximumSize">
+                           <size>
+                            <width>75</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="text">
+                           <string>1000</string>
+                          </property>
+                          <property name="alignment">
+                           <set>Qt::AlignmentFlag::AlignCenter</set>
+                          </property>
+                         </widget>
+                        </item>
+                       </layout>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QWidget" name="widget_3" native="true">
+                       <layout class="QHBoxLayout" name="horizontalLayout_13">
+                        <item>
+                         <widget class="QLabel" name="label_3">
+                          <property name="text">
+                           <string>Zoom Scale by Scroll Wheel</string>
+                          </property>
+                         </widget>
+                        </item>
+                        <item>
+                         <spacer name="horizontalSpacer_5">
+                          <property name="orientation">
+                           <enum>Qt::Orientation::Horizontal</enum>
+                          </property>
+                          <property name="sizeHint" stdset="0">
+                           <size>
+                            <width>40</width>
+                            <height>20</height>
+                           </size>
+                          </property>
+                         </spacer>
+                        </item>
+                        <item>
+                         <widget class="QLineEdit" name="interact_zoom_scale">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="maximumSize">
+                           <size>
+                            <width>75</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="text">
+                           <string>25</string>
+                          </property>
+                          <property name="alignment">
+                           <set>Qt::AlignmentFlag::AlignCenter</set>
+                          </property>
+                         </widget>
+                        </item>
+                       </layout>
+                      </widget>
+                     </item>
+                     <item>
+                      <widget class="QWidget" name="widget_4" native="true">
+                       <layout class="QHBoxLayout" name="horizontalLayout_14">
+                        <item>
+                         <widget class="QLabel" name="label_4">
+                          <property name="text">
+                           <string>Navigation Bar Size (in px)</string>
+                          </property>
+                         </widget>
+                        </item>
+                        <item>
+                         <spacer name="horizontalSpacer_6">
+                          <property name="orientation">
+                           <enum>Qt::Orientation::Horizontal</enum>
+                          </property>
+                          <property name="sizeHint" stdset="0">
+                           <size>
+                            <width>40</width>
+                            <height>20</height>
+                           </size>
+                          </property>
+                         </spacer>
+                        </item>
+                        <item>
+                         <widget class="QLineEdit" name="interact_nav_bar">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Maximum" vsizetype="Fixed">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="maximumSize">
+                           <size>
+                            <width>75</width>
+                            <height>16777215</height>
+                           </size>
+                          </property>
+                          <property name="text">
+                           <string>125</string>
+                          </property>
+                          <property name="alignment">
+                           <set>Qt::AlignmentFlag::AlignCenter</set>
+                          </property>
+                         </widget>
+                        </item>
+                       </layout>
+                      </widget>
+                     </item>
+                    </layout>
                    </widget>
                   </item>
                  </layout>
@@ -2048,7 +2207,7 @@ QProgressBar::chunk {
           </font>
          </property>
          <property name="styleSheet">
-          <string notr="true">border-left: 2px solid #194400;</string>
+          <string notr="true">border-left: 2px solid #174200;</string>
          </property>
          <property name="text">
           <string>500 items in directory</string>

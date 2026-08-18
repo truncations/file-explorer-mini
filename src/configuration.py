@@ -1,6 +1,7 @@
 """
 Module to do the following:
     * Store variables that can be configured to change the program's behavior.
+    * These are all DEFAULT values.
     
 This module should be used for ALL configurations.
     NO configurations should be added to any other script than this one.
@@ -21,6 +22,7 @@ class File_Explorer_Table_Config:
 class Window_Config:
     min_width = 50
     min_height = 200
+    navigation_section_size = 125
 
     # to remove for later
     default_width = 800
@@ -33,9 +35,11 @@ class Image_Config:
     max_zoom_scale_by_percentage = 1000
 
 class Media_Config:
+    media_auto_play = True
     min_vid_audio_percentage_progressed_for_backwards = 5
     default_zoom = 100
     default_volume = 50
+    current_volume = default_volume
     max_volume = 100
 
 def get_max_log_count():

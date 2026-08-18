@@ -7,8 +7,6 @@ This script also manages the user expereince.
 
 TODO    
     * Implement IContextMenu 2, and 3. (missing New Folder n stuff)
-    * Proxy context menu with QT instead
-    * "quick access like windows os file explorer" on trello
     * Basic Shortcut Commands like CTRL + V, CTRL + C.
     * Move files to a different folder (by our UI).
         (Or drag and drop...)
@@ -61,6 +59,7 @@ import sys
 import src.configuration as configuration
 import src.file_explorer_manager as file_explorer_manager
 import src.media_controller as media_manager
+import src.save_data as save_data
 from subprocess import run as subprocess_run
 from win32api import GetMonitorInfo, MonitorFromPoint
 
@@ -289,6 +288,7 @@ class Main_Application(QMainWindow):
         self.setup_file_explorer_table()
         self.setup_video_widget_for_media()
         self.connect_signals_and_slots()
+        self.load_save_data()
         self.show_page(File_Explorer_Pages.EXPLORER) # show explorer page for default
         self.update_file_explorer()
 
@@ -391,6 +391,11 @@ class Main_Application(QMainWindow):
 
         self.quick_access_entry_list.itemClicked.connect(self.quick_access_item_clicked)
         self.quick_access_entry_list.customContextMenuRequested.connect(self.quick_access_custom_menu_context)
+
+        self.interact_autoplay.clicked.connect(self.auto_play_setting_pressed)
+        self.interact_max_zoom.editingFinished.connect(self.save_save_data)
+        self.interact_zoom_scale.editingFinished.connect(self.save_save_data)
+        self.interact_nav_bar.editingFinished.connect(self.save_save_data)
 
     """
     UI updating functions
@@ -521,6 +526,27 @@ class Main_Application(QMainWindow):
         # otherwise we're fine..
         else:
             return Special_Bounds_Keys.NO_SPECIALS
+
+    def load_save_data(self):
+        save_data.Data.load_data()
+        data = save_data.Data.get_data()
+
+        configuration.Media_Config.media_auto_play = True if data[0].lower() == "yes" else False
+        configuration.Image_Config.max_zoom_scale_by_percentage = data[1]
+        configuration.Image_Config.change_zoom_by_wheel_amt = data[2]
+        configuration.Window_Config.navigation_section_size = data[3]
+        configuration.Media_Config.current_volume = data[4]
+
+        for line in data[5]:
+            self.setup_shortcut_file_exp(line)
+
+        self.navigation_section.setFixedWidth(configuration.Window_Config.navigation_section_size)
+        self.media_controller.states.stored_volume = configuration.Media_Config.current_volume
+
+        self.interact_autoplay.setText(data[0])
+        self.interact_max_zoom.setText(str(data[1]))
+        self.interact_zoom_scale.setText(str(data[2]))
+        self.interact_nav_bar.setText(str(data[3]))
 
     """
     Slots for signals provided by QWidget() objects
@@ -661,16 +687,20 @@ class Main_Application(QMainWindow):
         self.add_to_quick_access_list(file_path_tuple[1], file_path_data)
 
     def add_to_quick_access_list(self, file_name, data: tuple[str, QIcon]):
+        if file_name in self._shortcuts.keys():
+            return
         new_icon = data[1]
         new_item = QListWidgetItem(new_icon, file_name)
         self.quick_access_entry_list.addItem(new_item)
         self._shortcuts.update({file_name: (data[0], new_item)})
+        self.save_save_data()
 
     def remove_from_quick_access_list(self, index: QModelIndex, widget_item: QListWidgetItem):
         file_name = widget_item.text()
         self.quick_access_entry_list.takeItem(index.row())
         self.quick_access_entry_list.removeItemWidget(widget_item)
         self._shortcuts.pop(file_name)
+        self.save_save_data()
 
     def quick_access_item_clicked(self, item_clicked: QListWidgetItem):
         file_name = item_clicked.text()
@@ -689,6 +719,39 @@ class Main_Application(QMainWindow):
             resolved = menu.exec(QPoint(global_pos.x(), global_pos.y()))
             if resolved == action:
                 self.remove_from_quick_access_list(index, item)
+
+    def auto_play_setting_pressed(self):
+        if self.interact_autoplay.text().lower() == "yes":
+            self.interact_autoplay.setText("NO")
+        else:
+            self.interact_autoplay.setText("YES")
+        self.save_save_data()
+
+    def save_save_data(self):
+        configuration.Media_Config.media_auto_play = True if self.interact_autoplay.text().lower() == "yes" else False
+
+        if self.interact_max_zoom.text().isnumeric():
+            configuration.Image_Config.max_zoom_scale_by_percentage = int(self.interact_max_zoom.text())
+        else:
+            self.interact_max_zoom.setText(str(configuration.Image_Config.max_zoom_scale_by_percentage))
+
+        if self.interact_zoom_scale.text().isnumeric():
+            configuration.Image_Config.change_zoom_by_wheel_amt = int(self.interact_zoom_scale.text())
+        else:
+            self.interact_zoom_scale.setText(str(configuration.Image_Config.change_zoom_by_wheel_amt))
+
+        if self.interact_nav_bar.text().isnumeric(): 
+            configuration.Window_Config.navigation_section_size = int(self.interact_nav_bar.text())
+        else:
+            self.interact_nav_bar.setText(str(configuration.Window_Config.navigation_section_size))
+            
+        self.navigation_section.setFixedWidth(configuration.Window_Config.navigation_section_size)
+        if not self.media_controller.is_selected_file_playable():
+            self.media_controller.update_display_img()
+
+        entry_list_str = [f"{entry_data[0]}" for entry_name, entry_data in self._shortcuts.items()]
+
+        save_data.Data.save_data([self.interact_autoplay.text(), configuration.Image_Config.max_zoom_scale_by_percentage, configuration.Image_Config.change_zoom_by_wheel_amt, configuration.Window_Config.navigation_section_size, configuration.Media_Config.current_volume, entry_list_str])
 
     @pyqtSlot(list)
     def _add_to_file_explorer(self, buffered_entries: list[list]):
