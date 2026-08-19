@@ -7,5 +7,6 @@ Custom File Explorer supporting some documentation, simplified user interface, m
 <div align="center">
   <img width="555" height="414" alt="image" src="https://github.com/user-attachments/assets/deef7c71-880d-48cb-b994-34fc833c23a2" />
 </div>
+
 ## Credits
 * [QT](https://www.qt.io/), a package meant for creating User Interfaces.
