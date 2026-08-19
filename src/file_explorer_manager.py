@@ -16,7 +16,6 @@ import ctypes
 import win32gui
 import os
 import datetime
-import src.configuration
 import shutil
 import mimetypes
 import psutil
@@ -29,6 +28,7 @@ _work_path: str = os.path.dirname(__file__)[:-len("src")]
 
 # 
 _resource_path: str = os.path.join(_work_path, "resource")
+icon_file_path: str = os.path.join(_resource_path, "icon.ico")
 drives_path_name: str = "Drives" # custom name
 _default_path: str = drives_path_name
 _ui_src_file_name: str = "ui_source.ui"

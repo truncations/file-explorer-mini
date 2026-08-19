@@ -11,6 +11,8 @@ ENV/
 env/
 
 # other files
+build/
+dist/
 extra work/
 .vscode/
 .vscode/settings.json

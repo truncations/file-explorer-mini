@@ -16,22 +16,12 @@ from PyQt6 import uic # allows to load ui
 from PyQt6.QtWidgets import (
     QApplication,
     QMainWindow,
-    QTableView,
-    QTableWidget,
-    QTableWidgetItem,
     QHBoxLayout,
-    QLabel,
     QWidget, 
-    QSizePolicy,
-    QLineEdit,
-    QVBoxLayout,
     QStackedLayout,
     QPushButton,
-    QProgressBar,
     QFileIconProvider,
-    QListWidget,
     QListWidgetItem,
-    QSlider,
     QMenu,
 )
 from PyQt6.QtCore import (
@@ -46,14 +36,10 @@ from PyQt6.QtCore import (
     pyqtSlot, 
     QRunnable,
     QThreadPool,
-    QSize,
     QFileSystemWatcher,
-    QUrl,
     QItemSelection,
 )
-from PyQt6.QtMultimedia import QMediaPlayer, QAudioOutput, QMediaMetaData
-from PyQt6.QtMultimediaWidgets import QVideoWidget
-from PyQt6.QtGui import QIcon, QPixmap, QAction, QCursor
+from PyQt6.QtGui import QIcon, QPixmap
 from typing import NamedTuple, Callable, Any
 import sys
 import src.configuration as configuration
@@ -847,6 +833,7 @@ def get_monitor_taskbar_height() -> int:
     
 def start_application():
     # define all QT variables here
+    app.setWindowIcon(QIcon(file_explorer_manager.icon_file_path))
 
     window = Main_Application()
     window.show()
